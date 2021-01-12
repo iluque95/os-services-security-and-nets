@@ -1,0 +1,74 @@
+---------------- Data inici: 2019-02-27 17:10:17 ----------------
+
+Usuaris del sistema 
+-------------------
+ 
+Usuaris humans:		root,entel,itiel,itiel2
+Usuaris connectats:	root     pts/0        2019-02-27 16:47 (192.168.56.1)
+
+Configuració de l'equip 
+-----------------------
+ 
+Direcció del router: 	10.0.5.2
+Direcció externa: 	147.83.201.96 (clients-xsf-96.upc.es.)
+Ruta per defecte: 	10.0.5.2
+Direccions dels DNS: 	10.0.5.3
+
+Informació de les interfícies
+-----------------------------
+
+Nom de la interfície: 	lo (loopback)
+Estat: 			Desconegut
+Adreça MAC: 		00:00:00:00:00:00
+Nom de l'equip: 	seax
+Nom DNS l'equip: 	localhost
+Direcció IP privada: 	127.0.0.1
+Màscara de l'equip: 	255.0.0.0 (/8)
+Direcció broadcast: 	No s'ha pogut obtindre
+Direcció de xarxa: 	127.0.0.0
+Nom local de la xarxa: 	loopback
+Nom DNS de la xarxa: 	localhost.
+MTU: 			65536
+
+Nom de la interfície: 	itiel0 (dhcp)
+Estat: 			Activa
+Adreça MAC: 		08:00:27:c0:3f:03
+
+Nom de la interfície: 	enp0s8 (dhcp)
+Estat: 			Activa
+Adreça MAC: 		08:00:27:6e:af:ae
+Nom de l'equip: 	seax
+Nom DNS l'equip: 	epsevg.upc.edu
+Direcció IP privada: 	192.168.56.102
+Màscara de l'equip: 	255.255.255.0 (/24)
+Direcció broadcast: 	192.168.56.255
+Direcció de xarxa: 	192.168.56.0
+Nom local de la xarxa: 	default
+Nom DNS de la xarxa: 	No s'ha pogut obtindre
+MTU: 			1500
+
+Nom de la interfície: 	enp0s9 (dhcp)
+Estat: 			Activa
+Adreça MAC: 		00:00:00:00:00:58
+
+Nom de la interfície: 	enp0s10 (dhcp)
+Estat: 			Activa
+Adreça MAC: 		08:00:27:40:f7:74
+Nom de l'equip: 	seax
+Nom DNS l'equip: 	epsevg.upc.edu
+Direcció IP privada: 	10.0.5.15
+Màscara de l'equip: 	255.255.255.0 (/24)
+Direcció broadcast: 	10.0.5.255
+Direcció de xarxa: 	10.0.5.0
+Nom local de la xarxa: 	default
+Nom DNS de la xarxa: 	No s'ha pogut obtindre
+MTU: 			1500
+
+ERRORS
+------
+
+Possibles problemes amb la configuració de la interfície itiel0 amb configuració dhcp
+Possibles problemes amb la configuració de la interfície enp0s9 amb configuració dhcp
+
+
+---------------- Data fi: 2019-02-27 17:10:17 ----------------

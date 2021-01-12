@@ -1,0 +1,1990 @@
+# Pràctica 1 - Sessió 5 - Avaluació. (Luque Díaz Itiel)
+-------------------------------------------------------
+
+Enllaç de descàrrega: https://cloud.catac.upc.edu/owncloud/index.php/s/rOJ4yuKQRy8jJ01
+Clau: toor
+
+*NOTA: Aquest informe ha estat redactat amb amplada de tabulació 4 en editor de textos gedit.
+
+
+# REQUERIMENTS
+--------------
+
+1. Xarxa 1: de tipus ethernet; disposa de servidors de DNS i de DHCP; conté els equips alfa (10.1.1.10) i beta (10.1.1.20); està connectada a un ISP.
+2. Xarxa 2: de tipus ethernet; no disposa de servidors de DNS ni de DHCP; conté els equips gamma (10.1.2.10) i delta (10.1.2.20); està aïllada.
+3. Xarxa 3: de tipus wifi; disposa de servidors de DNS i de DHCP; està aïllada.
+
+Aquest equip s’haurà de configurar per ajustar-se a les necessitats de treball. Alguns dels paràmetres clau són:
+    - L’equip s’anomenarà “monitor.epsevg.upc.edu”.
+    - Es podrà accedir a la resta d’equips i xarxes pel seu nom.
+    - Es renombraran les interfícies de xarxa segons els següents criteris
+        - La interfície a la xarxa 1 (“client”) s’anomenarà “iclient”.
+        - La interfície a la xarxa 2 (“servidor”)s’anomenarà “iservidor”.
+        - La interfície a la xarxa 3 (“gestio”) s’anomenarà “igestio”.
+    - Els usuaris:contrasenyes seran “root:toor” i “entel:letne”.
+    - S’hi podrà accedir de forma segura per SSH amb l’usuari root, segons les recomanacions de SSH.
+                                                                       
+L’equip contindrà 2 scripts de treball.
+    - Cal Programar un script "eth.sh" amb bash que proporcioni informació sobre les interfícies ethernet en un fitxer de sortida "info_eth.txt", segons especificacions de la sessió 2.
+    - Cal programar un script "wifi.sh" amb bash que proporcioni informació sobre les interfícies wifi en un fitxer de sortida "info_wifi.txt", segons especificacions de la sessió 3.
+
+
+# FITXERS MODIFICATS
+--------------------
+
+- /etc/networks/interfaces
+- /etc/networks
+- /etc/hosts
+- /etc/udev/rules.d/70-persistent-net.rules
+- /etc/wpa_supplicant.conf
+
+
+# CANVIS EN LA MÀQUINA
+----------------------
+
+- S'han instal·lat les GuestAdditions.
+- S'han afegit els equips gamma i delta en el fitxer /etc/hosts.
+- S'han afegit els equips alfa i beta en /etc/hosts i deduixo que estan en el mateix domini encara que en xarxes aîllades. S'han afegit per incorporar redundància.
+- S'ha afegit la xarxa servidor en /etc/networks. No li afegeixo gateway perquè em posa aquesta com a ruta per defecte i provoca problemes.
+- S'ha afegit la xarxa client en /etc/network perquè com a administrador sóm coneixedors i per tant he deduït que estarà bé per incorporar més redundància.
+- Reanomenades les interficies en /etc/udev/rules.d/70-persistent-net.rules.
+- Configurades les interfícies iclient i igestio amb dhcp en /etc/network/interfaces.
+- Configurada interfície iservidor de forma estàtica en /etc/network/interfaces.
+- S'ha fet servir una màscara /24 en la interfície iservidor, com no s'espefica res, deduixo que serà entre un /24 i un /27 on l'ultim host és el 10.1.2.30.
+- Requeriment d'execució com a root per als scripts.
+- S'han instal·lat els paquets: wireless-tools, iw, dnsutils i wpasupplicant.
+- S'ha generat un parell de claus per a l'usuari root anomenades key i key.pub.
+- Creat l'usuari entel amb contrasenya letne.
+- S'ha configurat la targeta wifi per connectar-se a un punt d'accès creat des del mòbil amb nom de xarxa "pavo", contrasenya "pavapava".
+  Aquesta configuració s'ha fet amb wpa_supplicant com s'explica en l'informe (és el mateix exemple).
+
+
+# DEDUCCIONS SCRIPTS
+--------------------
+
+- En les interfícies ethernet el camp "state" és el mateix al que surt entre els simbols d'estricte ("<" i ">"),
+  per tant, es dedueix que són el iguals.
+- Dedueixo que el sistema operatiu al iniciar-se executarà el fitxer /etc/networks/interfaces i aquestes agafaran els paràmetres del DHCP o estàtics,
+  per tant, l'script es limitarà nomès a aixecar aquelles que en principi no estan contemplades en la configuració o que han fallat.
+- L'script wifi funcionarà sobre una única targeta wifi, tot i així, està preparat per suportar més d'una.
+
+
+# PROBLEMÀTIQUES SCRIPTS
+------------------------
+
+Es va tractar de trobar l'adreça ip externa per a cada interfície, però, va resultar extremadament dificil pel fet de que no hi havia manera d'assegurar
+el gateway correcte per a una interfície. S'havia de calcular i podía no ser correcte, a més, aquests no tenien sortida a internet.
+
+
+# Pràctica 1 - Sessió 1 - Creació d'un servidor Debian amb VirtualBox. (Luque Díaz Itiel)
+-----------------------------------------------------------------------------------------
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* VirtualBox 6.0.4
+* ISO Debian 9.7 (net install)
+* Extensions Pack 6.0.4
+* GuestAdditions.iso
+* Editor de textos (Gedit p.exemple)
+* John the Ripper
+
+
+# DESCRIPCIÓ
+------------
+
+Per poder treballar en un entorn virtualitzat sense escriptori (entorn gràfic) es fa servir una eina que ho permeti, 
+en aquest cas VirtualBox, que en l'escenari que es farà servir, per ser més precisos, el sistema operatiu serà
+Linux, la distribució de Debian, on s'aprofitarà junt a aquesta, per poder explotar-la al màxim, les extensions que ofereix 
+l'eina virtualitzadora, on les característiques d'aquestes són permetre USB 2.0, 3.0, protocol RDP, fer boot des de xarxa (PXE), 
+encriptar el HDD i NVMe.
+En quant a les GuestAdditions ofereixen compartició de carpetes, arrosegar fitxers entre màquina host i guest, establir la 
+resolució màxima de la màquina host.
+A més en aquest entorn s'aprendrà a com fer servir correctament virtualbox per poder desplegar, mantenir i replicar les màquines 
+virtualitzades i com configurar-les.
+
+
+# ASPECTES A CONSIDERAR
+-----------------------
+
+Assegurar-se de que el virtualbox no està instal·lat:
+	$ which virtualbox
+també
+	$ whereis virtualbox
+	
+Comprovar si les extensions pack estan instal·lades en Arxiu>Preferències>Extensions del
+client virtualbox.
+
+De manera no gràfica es pot mirar de la següent forma (això és una prova a posteriori):
+
+	itiel@X550JX:~$ VBoxManage list extpacks
+	Extension Packs: 1
+	Pack no. 0:   Oracle VM VirtualBox Extension Pack
+	Version:      6.0.4
+	Revision:     128413
+	Edition:      
+	Description:  USB 2.0 and USB 3.0 Host Controller, Host Webcam, VirtualBox RDP, PXE ROM, Disk Encryption, NVMe.
+	VRDE Module:  VBoxVRDP
+	Usable:       true 
+	Why unusable:
+	itiel@X550JX:~$
+	
+	
+# INSTAL·LACIONS PRÈVIES
+------------------------
+	
+S'ha de descarregar i afegir les claus oficials del repositori virtualbox:
+	# wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | sudo apt-key add -
+	# wget -q https://www.virtualbox.org/download/oracle_vbox.asc -O- | sudo apt-key add -
+	
+	Per instal·lar-ho, s'actualitza la llista de paquets previament i seguidament es pot procedir:
+	# sudo apt-get update
+	# sudo apt-get install virtualbox-6.0
+	
+Ja es pot fer la instal·lació de les extensions pack des de la pròpia pàgina web del Virtualbox, en la secció de descàrregues hi ha                  
+un enllaç directe i que suggereix que s'obri amb el mateix virtualbox perquè aquest sigui l'encarregat de fer la instal·lació.
+
+D'altra banda també es pot instal·lar pel terminal: 
+	# sudo apt-get install virtualbox-ext-pack
+
+Una tercera forma desde el terminal es descarregar primer les extensions i desprès 
+instalar-les amb les eines que ofereix virtualbox, en aquest cas, vboxmanage.
+	$ wget "https://download.virtualbox.org/virtualbox/${vboxversion}/Oracle_VM_VirtualBox_Extension_Pack-${vboxversion}.vbox-extpack"
+	# sudo vboxmanage extpack install --replace Oracle_VM_VirtualBox_Extension_Pack-${vboxversion}.vbox-extpack
+	
+Un cop està tot llest en l'entorn gràfic en les ToolBar, s'ha de fer click en Màquina>Nova.
+La màquina ha de contenir les següents característiques:
+	* Nom: El que es vullgui.
+	* Tipus: Linux
+	* Versió: Debian (64 bits)
+	* Mida de la memòria: 512 MB
+	* Nou disc virtual VDI: 4 GB (dinàmic)
+	
+El següent pas és afegir el disc de instal·lació a la màquina en Configuració>Emmagatzenament
+i s'ha d'afegir un nou Controlador:IDE del tipus disc en la icona, concretament s'ha de seleccionar
+el disc que comporta la instal·lació del debian.
+
+S'arrenca la màquina virtual i com no conté res el disc dur arrenca el CDROM.
+Altrament pitjar F12 al arrencar la màquina i en el menú ràpid escollir CD-ROM.
+
+És imprescindible seleccionar Install on no aparegui la paraula "Graphic", no es vol disposar
+d'entorn gràfic, ja que és consum de memòria RAM, HDD i CPU innecessari.
+
+Configuració que es vol segons demanen les passes de l'instal·lador (són relatives, algunes són obvies i s'ignoren, com les d'idioma i hora local):
+	1. Hostname: seax.epsevg.upc.edu
+	2. Passwd root: toor
+	3. Nou usuari: telnet
+	4. Passwd telnet: letne
+	5. Mètode de partició: Guiat - utilitza el disc sencer
+	6. Partició /home separada
+	7. No volem fer servir més CDs/DVDs
+	8. Repositori Debian (Rèplica de l'arxiu): Espanya (ftp.es.debian.org)
+	9. Servidor intermediari HTTP: En blan per a cap.
+	10. Programari: SSH server i Utilitats estàndard del sistema.
+	11. Instal·lar grub en /dev/sda
+	
+Quan la màquina guest està funcionant i s'ha pogut accedir amb l'usuari root, s'ha de fer un apt-get update
+de la llista de paquets per poder instal·lar els que són necessaris per les GuestAdditions.
+
+En concret s'ha d'intal·lar un, i seguidament executar una comanda per preparar el kernel:
+	# apt-get install build-essential module-assistant
+	# m-a prepare
+	
+S'ha d'insertar el disc de les GuestAdditions que en el entorn gràfic del virtualbox es pot fer en 
+Dispositius>Insertar imatge de CD de les "GuestAdditions".
+
+Un cop inserit el CD s'haurà automuntat en la ruta /media/cdrom o /media/cdrom0, en la qual s'haurà d'accedir
+per tal d'executar l'script:
+	# sh VBoxLinuxAdditions.run
+	
+Ja estàn instal·lades.
+
+# REPLICACIÓ DE LES MÀQUINES
+----------------------------
+
+La manera més ràpida i fàcil de poder replicar una màquina és fent un clon d'aquesta.
+
+Es pot fer tant per entorn gràfic com per comandes, en aquest cas s'explica pel segon mètode:
+$ VBoxManage clonevm <source-machine-name> --name <target-machine-name> --register
+
+Exemple:
+
+	itiel@X550JX:~$ VBoxManage list vms
+	"Debian" {382a9e2c-d8c0-46ca-9ddc-daf91ca06418}
+	itiel@X550JX:~$ 
+
+	itiel@X550JX:~$ VBoxManage clonevm Debian --name "Debian clonada" --register
+	0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+	Machine has been successfully cloned as "Debian clonada"
+	itiel@X550JX:~$ 
+
+	itiel@X550JX:~$ VBoxManage list vms
+	"Debian" {382a9e2c-d8c0-46ca-9ddc-daf91ca06418}
+	"Debian clonada" {ab282c42-78ad-4816-8f6d-08450de64c13}
+	itiel@X550JX:~$
+
+Un altre forma que permet compactar els fitxers de la màquina en un sol fitxer i poder replicar-la en 
+un altre sistema és exportant-la. O bé si es disposa d'una que ja ha estat exportada i es vol integrar.
+Com totes les eines, es pot fer per entorn gràfic o comandes en el terminal i un cop més es farà per la
+línia de comandes:
+
+Per exportar:
+$ VBoxManage export [Machine name] --output [Path to output and name of cloned machine with extension .ova]
+
+Per importar:
+$ VBoxManage import [Machine name] [Path of machine]
+
+Exemple:
+
+	itiel@X550JX:~$ VBoxManage list vms
+	"Debian" {382a9e2c-d8c0-46ca-9ddc-daf91ca06418}
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ VBoxManage export Debian --output VirtualBox\ VMs/Output.ova
+	0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+	Successfully exported 1 machine(s).
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ VBoxManage import VirtualBox\ VMs/Output.ova
+	0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+	Interpreting /home/itiel/VirtualBox VMs/Output.ova...
+	OK.
+	Disks:
+	  vmdisk2	4294967296	-1	http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized	Output-disk002.vmdk	-1	-1	
+
+	Virtual system 0:
+	 0: Suggested OS type: "Debian_64"
+		(change with "--vsys 0 --ostype <type>"; use "list ostypes" to list all possible values)
+	 1: Suggested VM name "Debian 1"
+		(change with "--vsys 0 --vmname <name>")
+	 2: Suggested VM group "/"
+		(change with "--vsys 0 --group <group>")
+	 3: Suggested VM settings file name "/home/itiel/VirtualBox VMs/Debian 1/Debian 1.vbox"
+		(change with "--vsys 0 --settingsfile <filename>")
+	 4: Suggested VM base folder "/home/itiel/VirtualBox VMs"
+		(change with "--vsys 0 --basefolder <path>")
+	 5: Number of CPUs: 1
+		(change with "--vsys 0 --cpus <n>")
+	 6: Guest memory: 512 MB
+		(change with "--vsys 0 --memory <MB>")
+	 7: Sound card (appliance expects "", can change on import)
+		(disable with "--vsys 0 --unit 7 --ignore")
+	 8: USB controller
+		(disable with "--vsys 0 --unit 8 --ignore")
+	 9: Network adapter: orig NAT, config 3, extra slot=0;type=NAT
+	10: CD-ROM
+		(disable with "--vsys 0 --unit 10 --ignore")
+	11: IDE controller, type PIIX4
+		(disable with "--vsys 0 --unit 11 --ignore")
+	12: IDE controller, type PIIX4
+		(disable with "--vsys 0 --unit 12 --ignore")
+	13: SATA controller, type AHCI
+		(disable with "--vsys 0 --unit 13 --ignore")
+	14: Hard disk image: source image=Output-disk002.vmdk, target path=Output-disk002.vmdk, controller=13;channel=0
+		(change target path with "--vsys 0 --unit 14 --disk path";
+		disable with "--vsys 0 --unit 14 --ignore")
+	0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+	itiel@X550JX:~$ 
+
+	itiel@X550JX:~$ VBoxManage list vms
+	"Debian" {382a9e2c-d8c0-46ca-9ddc-daf91ca06418}
+	"Debian 1" {e6e93398-2d0c-4489-9c59-08b6ceb0da0f}
+	itiel@X550JX:~$ 
+	
+Per fer una copia manualment s'ha de copiar la carpeta original i canviar alguns identificadors que fan que una
+màquina sigui única. Els més importants són els de la propia màquina "Machine UUID" i el del disc dur.
+Aquests s'han de modificar en la màquina, per exemple, en aquest cas, és la Debian.vbox, que en realitat és
+un fitxer XML que es pot modificar amb un editor de textos.
+La màquina ha d'estar aturada si es vol fer canvis sobre aquest, i és altament recomanable fer backup,
+a més d'intentar no modificar-lo mai tret que sigui per força major, ja que pot deixar la màquina inservible.
+
+Exemple:
+
+	Aquestes línies són trossos del fitxer original de la màquina còpia i aquest sense modificacions:
+		<Machine uuid="{382a9e2c-d8c0-46ca-9ddc-daf91ca06418}" name="Debian" ... >
+		<HardDisk uuid="{45e37ff9-62db-4f84-a0bc-b9b0a4251dc4}" location="Debian.vdi" ... >
+	
+	Aquesta és la comanda per generar un nou UUID al disc dur:
+		itiel@X550JX:~/VirtualBox VMs/Debian2$ VBoxManage internalcommands sethduuid Debian.vdi 
+		UUID changed to: c2dc3d57-cfac-4610-a567-7637d136099e
+		itiel@X550JX:~/VirtualBox VMs/Debian2$
+		
+	Finalment les línies queden d'aquesta manera:
+		<Machine uuid="{482a9e2c-d8c0-46ca-9ddc-daf91ca06420}" name="Debian Copied" ... >
+		<HardDisk uuid="{c2dc3d57-cfac-4610-a567-7637d136099e}" location="Debian.vdi" ... >
+			
+D'altra banda, si es necessita mantindre backups diferencials, és a dir, les ultimes modificacions
+que s'han realitzat sobre la màquina, es poden fer servir les instantànies, que brinden l'oportunitat
+de sempre tenir fins l'últim punt actual o crític que s'ha estat treballant, mantenint així, una
+còpia lleugera.
+
+Per poder realitzar aquest tipus de còpies, es poden fer amb la màquina executant-se, fent clic en les 
+ToolBar en la pestanya Màquina>Prendre una instantània.
+
+Així doncs, en qualsevol pas crític es pot fer una instantània i en cas de cometre erros, es pot restaurar
+fent click sobre la mateixa màquina en la GUI de VirtualBox, en la pestanya instantànies i escollint
+la desitjada.
+			
+# GESTIÓ DE LA XARXA
+--------------------
+
+En la configuració de la màquina, en la GUI de VirtualBox es pot trobar una secció relacionada amb la xarxa on 
+s'ofereix la possibilitat d'habilitar fins a quatre interfícies virtuals on es poden configurar mínimament.
+
+Hi ha diferents formes de connectar-se a la xarxa, a més es poden fer xarxes internes.
+
+*NAT: VirtualBox estableix una IP a la màquina de classe A i és fa una conversió NAT quan s'envien/reben paquets.
+*Adaptador pont: Es connecta a la xarxa física de la interfície física escollida.
+*Xarxa interna: Crea una xarxa interna sense accés a internet.
+
+Es pot gestionar la cada interfície en aquesta mateixa pestanya, però, per això és necessari posar el mitjà
+virtual com a adaptador pont on permetrà escollir entre les diferents interfícies físiques que estan instal·lades
+en la màquina host. Se les hi pot gestionar la seva MAC de forma manual, en opcions avançades.
+
+Per a configurar cadascuna de les interfícies amb els paràmetres desitjats depèn de cada sistema operatiu que es 
+farà servir, en aquest cas s'utilitzarà Debian, on la configuració es troba en /etc/network/interfaces.
+
+Una configuració automàtica podría ser aquesta:
+	
+	itiel@X550JX:~$ cat /etc/network/interfaces
+	# interfaces(5) file used by ifup(8) and ifdown(8)
+	auto lo
+	iface lo inet loopback
+	auto eth0
+    iface eth0 inet dhcp
+	itiel@X550JX:~$
+
+Per configurar-les estàtiques podría ser aquesta altre: 
+
+	itiel@X550JX:~$ cat /etc/network/interfaces
+	# interfaces(5) file used by ifup(8) and ifdown(8)
+	auto lo
+	iface lo inet loopback
+	auto eth0
+   	iface eth0 inet static
+        address 192.0.2.7
+        netmask 255.255.255.0
+        gateway 192.0.2.254
+	itiel@X550JX:~$
+	
+	
+# PERIFÈRICS I COMPARTICIÓ
+--------------------------
+
+La compartició de perifèrics i arxius entre màquina host i guest és una manera útil de treballar.
+Es pot compartir un llapis usb amb dades entre màquines anant a la configuració sobre la màquina en qüestió,
+en el menú USB permet habilitar el controlador i la versió que es vol fer servir.
+Després s'ha de muntar el dispositiu.
+
+Una altre manera es compartint carpetes, que es pot fer en el client del virtualbox quan la màquina està corrent,
+en la pestanya Dispositiu>Carpetes compartides>Preferències de les carpetes compartides.
+Clic en l'icona per afegir una nova carpeta del sistema de fitxers de l'host.
+Les característiques depenen de si es vol que nomès sigui de lectura, que s'automunti, el punt de muntatge
+i si es vol que sigui permanent.
+
+
+# ACCÉS REMOT
+-------------
+
+Una forma de poder gestionar les màquines de forma remota des de qualsevol lloc, dintre o fora de la mateixa xarxa
+on es troba la màquina virtualitzada és habilitant el servidor RDP que ofereix virtualbox.
+Això es pot fer en la configuració de la màquina, en la secció Pantalla en la pestanya "Pantalla remota" habilitant
+el checkbox.
+
+Si s'està fent servir adaptador NAT és imprescindible configurar el reenviament de ports de la màquina host a la guest.
+
+Un altre forma d'accedir-hi és mitjançant el protocol SSH.
+
+
+# SEGURETAT USUARIS
+-------------------
+
+Un mètode eficient és fer servir l'eina John the Ripper la qual permet fer servir diccionaris amb les contrasenyes
+més populars de tot el món i s'encarrega de comparar la clau d'un usuari amb totes les existents que en té el 
+diccionari.
+A més, per si no n'hi hagués prou, té l'opció d'intentar trobar-la per força bruta.
+
+Les contrasenyes dels usuaris estan emmagatzemades en forma de resum (hash) concretament SHA512 en el fitxer /etc/shadow
+que s'haurà de copiar en el directori dels diccionaris per no treballar sobre l'original i cometre possibles errors.
+
+Exactament quan es parla de desxifrat no és correcte, aquestes s'encripten de forma que no hi ha manera de fer el procès
+invers, l'única forma que hi ha és passar una funció de resum hash sobre una clau que es creu que pot ser la mateixa i
+comparar si són iguals, però, abans es necessari saber sobre quin tipus de xifrat es tracta.
+
+Amb altres paraules i aprofundint en termes matemàtics, suposant X com a clau i Y com la funció hash es pot calcular Z, 
+però, a partir de Z no es pot calcular X. Ex: 8 mod 2 = 0.
+
+Per exemple, en distribucions Debian existeixen diversos xifrats representats amb un valor identificatiu com es mostra
+en el següent cas:
+
+$1$=MD5      (22 caràcteres)
+$2$=blowfish (28 caràcteres)
+$5$=SHA-256  (43 caràcteres)
+$6$=SHA-512  (86 caràcteres)
+
+Com s'esmentava prèviament, es pot observar en el fitxer /etc/shadow quin tipus de xifrat s'està fent servir:
+
+root:$6$bD.YvIwm$2LXCsSUb32mBvh1w8iLnjWSHHmH2QZCZzVSrKQIr1Oi/jUcBRjM.
+entel:$6$Zc0DouUq$iPTRbZAmEpBF5tXdzNSNw4YwtMgGWbPgMfqV9igRwe2x0iIGQF0RpPUQ3xL6nvoh71KutkNxAuWKVTEo.0hR90:17941:0:99999:7:::
+itiel:$6$MxDb.1zr$EG3X.BlqUmqV.MlzwDNHGuETkvUH6M8ZpzhHSs5uiMlJ1FoW5F.gaMBVz21fIIHuLNzGxmbqbt5ZRovl/R6lv/:17944:0:99999:7:::
+
+En tots els casos es pot veure després del nom de l'usuari dos punts i seguit del tipus de xifrat més la clau xifrada
+en qüestió, i en tots els casos, es tracta de l'identificador $6$ que correspon a SHA512, un xifrat molt fort.
+
+Per instal·lar l'aplicatiu es pot fer des de el mateix terminal:
+	$ sudo apt-get install john
+
+Per fer-ho funcionar;
+	$ john -w=<diccionari> <fitxer shadow copiat>
+
+Per desxifrar-les es fa servir:
+	$ john -format=crypt <fitxer shadow copiat>	
+
+Per mostrar les contrasenyes que ha aconseguit "desxifrar":
+	$ john --show <fitxer shadow copiat>
+
+Exemple:
+
+	root@seax:/media/sf_Shared# john -w=common.usr shadow
+	Press 'q' or Ctrl-C to abort, almost any other key for status
+	Loaded 3 password hashes with 3 different salts (crypt, generic crypt(3) [?/64])
+	Remaining 1 password hash
+	0g 0:00:00:02 100% 0g/s 373.7p/s 373.7c/s 373.7C/s vertigo..zmodem
+	Session completed
+	
+	root@seax:/media/sf_Shared# john -w=default.usr shadow
+	Press 'q' or Ctrl-C to abort, almost any other key for status
+	Loaded 3 password hashes with 3 different salts (crypt, generic crypt(3) [?/64])
+	Remaining 1 password hash
+	0g 0:00:00:01 100% 0g/s 373.1p/s 373.1c/s 373.1C/s mj..marks
+	Session completed
+
+	root@seax:/media/sf_Shared# john -w=minimal.usr shadow
+	Press 'q' or Ctrl-C to abort, almost any other key for status
+	Loaded 3 password hashes with 3 different salts (crypt, generic crypt(3) [?/64])
+	Remaining 1 password hash
+	0g 0:00:00:00 100% 0g/s 320.0p/s 320.0c/s 320.0C/s root..postmaster
+	Session completed
+
+	root@seax:/media/sf_Shared# john -w=john.pwd shadow
+	Press 'q' or Ctrl-C to abort, almost any other key for status
+	Loaded 3 password hashes with 3 different salts (crypt, generic crypt(3) [?/64])
+	Remaining 1 password hash
+	bernard          (itiel)
+	1g 0:00:00:07 100% 0.1270g/s 378.1p/s 378.1c/s 378.1C/s whitney..carolina
+	Use the "--show" option to display all of the cracked passwords reliably
+	Session completed
+	
+	root@seax:/media/sf_Shared# john --show shadow
+	root:toor:17941:0:99999:7:::
+	entel:letne:17941:0:99999:7:::
+	itiel:bernard:17944:0:99999:7:::
+
+	3 password hashes cracked, 0 left
+
+
+# Pràctica 1 - Sessió 2 - Configuració de les interfícies de xarxa Ethernet. (Luque Díaz, Itiel)
+------------------------------------------------------------------------------------------------
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Gestor de textos
+* Shell bash
+* Comanda dig (apt-get install dnsutils)
+
+
+# FITXERS RELACIONATS
+---------------------
+
+* /etc/network/interfaces						-->	Configuració de les interfícies
+* /etc/hostname									-->	Nom de l'equip en la xarxa
+* /etc/resolv.conf								-->	Servidors DNS i nom de la xarxa
+* /etc/passwd									-->	Usuaris del sistema
+* /etc/udev/rules.d/70-persistent-net.rules		--> Configuracions permanents de xarxa
+* /etc/networks									--> Nom de les xarxes conegudes
+* /etc/hosts									--> Hosts coneguts amb el seu dns
+
+
+# DESCRIPCIÓ
+------------
+
+De vegades és necessari mantenir un recull d'informació sobre l'equip i la xarxa on
+s'està treballant, per saber que està succeïnt en l'entorn i poder guarantir un correcte
+funcionament d'aquesta.
+Altres cops, potser, es vol detectar errors en aquells punts més crítics que amb un simple
+script es poden fer en qüestió de pocs minuts.
+En aquesta sessió s'aprendrà a realitzar un shell scripten bash on tractarà aquests temes,
+cercant l'informació i recullint-la per a què l'administrador pugui analitzar-la i extreure
+conclusions a partir dels resultats.
+
+
+# ACTIVACIÓ/DESACTIVACIÓ D'INTERFÍCIES
+--------------------------------------
+
+Per mostrar les interfícies que están actives encara que no estiguin configurades
+es pot fer amb la comanda:
+	$ ip a
+
+Si es vol aixer alguna en concret es pot fer amb:
+	# ifup <nom de la interficie>
+
+Inversament es pot desactivar amb:
+	# ifdown <nom de la interficie>
+
+Per a saber si aquesta està activa o no basta amb veure els paràmetres que té que
+normalment no disposa dels paràmetres que ofereix el DHCP.
+
+Es pot assegurar fent ping a la mateixa màquina amb aquesta interfície. Per exemple:
+	$ ping -I <nom interficie> 127.0.0.1
+
+Si la interfície no està activa, es queixarà amb un missatge de l'estil "La xarxa és
+inabastable" normalment en anglès.
+
+
+# REANOMENAMENT D'UNA INTERFÍCIE
+--------------------------------
+
+El sistema operatiu assigna un nom a cada interfície, antigament feia servir el nom
+d'ethX on X començava per la que zero, però aquest mètode era un problema perquè no
+hi havia una associació directa amb la targeta de xarxa física. Per aquest motiu es
+va començar a vincular el tipus de targeta amb la seva mac i així donar un nom únic.
+
+En aquest cas es diposa d'una interfície amb direcció mac 08:00:27:c0:3f:03 i amb nom
+enp0s3 del tipus ethernet (RJ45).
+
+És un nom dificil de recordar, per això, és útil poder assignar un nom propi.
+
+Per poder saber els paràmetres, mac i nom d'interfície es fa amb la comanda:
+	$ ip addr show
+
+Un cop recollides les dades, s'ha d'afegir un nou fitxer de configuracions persistents
+en /etc/udev/rules.d/ anomenat 70-persistent-net.rules on afegirem una regla com aquesta:
+
+	# interface with MAC address "08:00:27:c0:3f:03" will be assigned "itiel0"
+	SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="08:00:27:c0:3f:03", ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="enp0s3", NAME="itiel0"
+
+Es important indicar en la directiva KERNEL el nom amb que es reconeix i en NAME amb
+el nom que vol veure a partir d'ara així com de quina interfície es tracta, per això,
+s'indica la mac en ATTR{address}. La resta de paràmetres són per a configurar més d'una
+en el cas de ATTR{dev_id} i el tipus, ethernet o wifi.
+
+Per acabar de configurar-la amb el nou nom s'ha d'aclarir en el fitxer de les
+interficies amb quien nom es veurà a partir d'ara per a què la pugui activar
+de forma automàtica i es puguin relacionar els paràmetres a l'interfície:
+
+Abans de modificar res:
+
+	# The primary network interface
+	auto enp0s3
+	allow-hotplug enp0s3
+	iface enp0s3 inet dhcp
+
+Després de reanomenar l'interfície:
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet dhcp
+
+
+# CONFIGURACIÓ DE LES INTERFÍCIES
+---------------------------------
+
+La configuració manual es fa sobre el fitxer /etc/network/interfaces on es poden
+assignar interfícies automàtiques, és a dir, que demanin els paràmetres de xarxa
+a un servidor DHCP o de manera estàtica on l'administrador introdueix cada un
+amb els valors que vol.
+
+Exemple configuració dinàmica:
+
+	# This file describes the network interfaces available on your system
+	# and how to activate them. For more information, see interfaces(5).
+
+	source /etc/network/interfaces.d/*
+
+	# The loopback network interface
+	auto lo
+	iface lo inet loopback
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet dhcp
+
+Exemple configuració estàtica:
+
+	# This file describes the network interfaces available on your system
+	# and how to activate them. For more information, see interfaces(5).
+
+	source /etc/network/interfaces.d/*
+
+	# The loopback network interface
+	auto lo
+	iface lo inet loopback
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet static
+			address 192.168.1.50
+			netmask 255.255.255.0
+			network 192.168.1.0
+			gateway 192.168.1.1
+			dns-nameservers 8.8.8.8
+
+Per poder re-negociar una nova direcció ip i els nous paràmetres es fa
+amb la comanda:
+	# dhclient -v -r <nom interfície>
+
+D'altra banda es pot configurar una interfície en viu, pot estar activa o desactivada
+i se li pot assignar els paràmetres necessaris amb la comanda:
+	# ip link set dev <interface> <parametre> <valor>
+
+També:
+	# ip addr add <ip dir with cidr> dev <interface>
+
+Exemple:
+
+	# ip link set dev itiel0 name eth0
+	# ip link set dev itiel0 address 00:80:c8:f8:be:ef
+	# ip link set dev itiel0 alias itiel_fisica
+	# ip addr add 192.168.1.20/24 dev itiel0
+	
+	
+Per acabar la configuració de l'interfície, és molt important saber si aquesta està bé,
+ja que es podría deixar sense comunicació a la màquina que s'està fent canvis.
+
+Amb la mateixa eina que s'activen les interfícies, amb uns paràmetres es pot veure
+si tot està correcte:
+
+	# sudo ifup --no-act <nom interfície>
+
+Per exemple, en cas d'estar tot correcte es veuría una sortida semblant a aquesta:
+	
+	$ sudo ifup --no-act eth0
+	ifup: interface eth0 already configured
+
+I en el cas advers:
+
+	$ sudo ifup --no-act eth0
+	/etc/network/interfaces:11: unknown method
+	ifup: couldn't read interfaces file "/etc/network/interfaces"
+
+
+# CONÈIXER IP EXTERNA
+---------------------
+
+Existeixen diverses formes, com per exemple les que s'esmentaran a continuació:
+	
+	1. Fer un ping a una ip externa, p.ex. a google.
+	2. Descarregar el recurs d'una pàgina web on indica l'ip pública del client mitjançant
+	   un llenguatge de programació web. P.ex. PHP.
+	3. Fent consultes DNS.
+
+Per poder conèixer l'ip externa per a cada interfície s'ha de canviar la ruta
+per defecte que té sortida a internet.
+
+Mostrar rutes:
+
+	$ ip route list
+
+Esborra ruta per defecte:
+
+	# ip route del default
+
+Ruta que farà servir:
+
+	# ip route add default via <gateway> dev <interface>
+
+Exemple:
+
+	# ip route add default via 192.168.1.1 dev eth1
+
+Per forçar a que depenent de la xarxa tingui una sortida o una d'altre:
+	
+	# ip route add <network> via <gateway> dev <interface>
+
+Exemple:
+
+	# ip route add 192.168.10.0/24 via 192.168.1.1 dev eth0
+
+A partir d'aquest moment les peticions a qualsevol ruta aniran per la eth1 excepte les
+que van cap a la xarxa 192.168.10.0 que aniran per la interfície eth0
+
+
+# RESOLUCIÓ DE NOMS
+-------------------
+
+Existeixen dues formes principalment de configurar i reconèixer hosts i xarxes. La primera
+forma es configurar-ho de manera local on es pot indicar donat un host un dns i un àlies
+en el fitxer /etc/hosts de manera que la primera columna representa l'ip de la màquina,
+la segona el dns i l'última s'especifica un àlies.
+
+Exemple:
+	
+	root@seax:~# cat /etc/hosts
+	127.0.0.1	localhost
+	127.0.1.1	seax.epsevg.upc.edu	seax
+
+Per un altra banda, del mateix mode, es troba el fitxer /etc/networks on es poden assignar
+les diferents xarxes que es coneixen. Les interfícies de la pròpia màquina que no tinguin
+especificat un nom per a la seva xarxa s'entén com que és la per defecte (0.0.0.0).
+
+Exemple:
+
+	root@seax:~# cat /etc/networks
+	default		0.0.0.0
+	loopback	127.0.0.0
+
+D'altra banda, es pot demanar al/s servidor/s DNS que ofereix el DHCP o bé, va ser configurat de
+manera estàtica per l'administrador de la xarxa, i que donada una ip, es pot saber quin nom té 
+l'equip i la xarxa si es que en tenen de configurats.
+
+Per exemple, en aquest cas nomès es mostra el registre PTR:
+
+	En el primer exemple es mostrarà el nom de la xarxa:
+
+	root@seax:~# dig @10.0.5.3 -x 147.83.201.96 +short
+	clients-xsf-96.upc.es.
+	root@seax:~#
+
+	En aquest cas es mostra el nom d'un equip:
+	
+	root@seax:~# dig @10.0.5.3 -x 147.83.45.72 +short
+	bibvg-portatil02.upc.es.
+	root@seax:~#
+
+	Pregunta quin nom té la següent xarxa:
+
+	root@seax:~# dig @10.0.5.3 -x 127.0.0.0 +short
+	localhost.
+	root@seax:~#
+
+
+# PROGRAMAR UN SHELL SCRIPT
+---------------------------
+
+Amb qualsevol editor de textos es pot programar un script shell, s'ha d'indicar quin tipus
+d'interpret ho executarà i respectar la sintaxis que cascacún d'aquests els hi conformen les 
+instruccions per poder realitzar un algoritme.
+
+És molt important procurar no cometre errors amb fitxers crítics del sistema, és convenient
+fer un backup. Si el fitxer és d'internet, és a dir, d'una font no confiable, s'hauría de
+procurar d'interpretar què és el que fa l'script i a quin nivell de sistema està fent
+consultes i modificacions.
+
+Per poder executar correctament l'script, és molt apropiat tenir els paquets amb les versions
+en que es va realitzar aquest per evitar problemes amb incompatibilitats. Si n'és
+l'administrador, creador del shell script, de tant en tant s'hauría de provar amb els paquets
+actualitzats.
+
+
+# Pràctica 1 - Sessió 3 - Configuració de les interfícies de xarxa Wi-Fi. (Luque Díaz, Itiel)
+---------------------------------------------------------------------------------------------
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Gestor de textos
+* Shell bash
+* Comanda dig (apt-get install dnsutils)
+* Comanda iw (apt-get install iw)
+* Comandes iwlist, iwconfig (apt-get install wireless-tools)
+* wpa_supplicant (apt-get install wpasupplicant)
+* Drivers targeta inalàmbrica
+
+
+# FITXERS RELACIONATS
+---------------------
+
+* /etc/network/interfaces						-->	Configuració de les interfícies
+* /etc/hostname									-->	Nom de l'equip en la xarxa
+* /etc/resolv.conf								-->	Servidors DNS i nom de la xarxa
+* /etc/passwd									-->	Usuaris del sistema
+* /etc/udev/rules.d/70-persistent-net.rules		--> Configuracions permanents de xarxa
+* /etc/networks									--> Nom de les xarxes conegudes
+* /etc/hosts									--> Hosts coneguts amb el seu dns
+* /sys/class/net/<interfície>					--> Estadístiques de les intefícies
+
+
+# DESCRIPCIÓ
+------------
+
+De vegades és necessari mantenir un recull d'informació sobre l'equip i la xarxa on
+s'està treballant, per saber que està succeïnt en l'entorn i poder guarantir un correcte
+funcionament d'aquesta.
+Altres cops, potser, es vol detectar errors en aquells punts més crítics que amb un simple
+script es poden fer en qüestió de pocs minuts.
+En aquesta sessió s'aprendrà a realitzar un shell scripten bash on tractarà aquests temes,
+cercant l'informació i recullint-la per a què l'administrador pugui analitzar-la i extreure
+conclusions a partir dels resultats.
+
+
+# ACTIVACIÓ/DESACTIVACIÓ D'INTERFÍCIES
+--------------------------------------
+
+Per mostrar les interfícies que están actives encara que no estiguin configurades
+es pot fer amb la comanda:
+	$ ip a
+
+Si es vol aixer alguna en concret es pot fer amb:
+	# ifup <nom de la interficie>
+
+Inversament es pot desactivar amb:
+	# ifdown <nom de la interficie>
+
+Per a saber si aquesta està activa o no basta amb veure els paràmetres que té que
+normalment no disposa dels paràmetres que ofereix el DHCP.
+
+Es pot assegurar fent ping a la mateixa màquina amb aquesta interfície. Per exemple:
+	$ ping -I <nom interficie> 127.0.0.1
+
+Si la interfície no està activa, es queixarà amb un missatge de l'estil "La xarxa és
+inabastable" normalment en anglès.
+
+
+# REANOMENAMENT D'UNA INTERFÍCIE
+--------------------------------
+
+El sistema operatiu assigna un nom a cada interfície, antigament feia servir el nom
+d'ethX on X començava per la que zero, però aquest mètode era un problema perquè no
+hi havia una associació directa amb la targeta de xarxa física. Per aquest motiu es
+va començar a vincular el tipus de targeta amb la seva mac i així donar un nom únic.
+
+En aquest cas es diposa d'una interfície amb direcció mac 08:00:27:c0:3f:03 i amb nom
+enp0s3 del tipus ethernet (RJ45).
+
+És un nom dificil de recordar, per això, és útil poder assignar un nom propi.
+
+Per poder saber els paràmetres, mac i nom d'interfície es fa amb la comanda:
+	$ ip addr show
+
+Un cop recollides les dades, s'ha d'afegir un nou fitxer de configuracions persistents
+en /etc/udev/rules.d/ anomenat 70-persistent-net.rules on afegirem una regla com aquesta:
+
+	# interface with MAC address "08:00:27:c0:3f:03" will be assigned "itiel0"
+	SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="08:00:27:c0:3f:03", ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="enp0s3", NAME="itiel0"
+
+Es important indicar en la directiva KERNEL el nom amb que es reconeix i en NAME amb
+el nom que vol veure a partir d'ara així com de quina interfície es tracta, per això,
+s'indica la mac en ATTR{address}. La resta de paràmetres són per a configurar més d'una
+en el cas de ATTR{dev_id} i el tipus, ethernet o wifi.
+
+Per acabar de configurar-la amb el nou nom s'ha d'aclarir en el fitxer de les
+interficies amb quien nom es veurà a partir d'ara per a què la pugui activar
+de forma automàtica i es puguin relacionar els paràmetres a l'interfície:
+
+Abans de modificar res:
+
+	# The primary network interface
+	auto enp0s3
+	allow-hotplug enp0s3
+	iface enp0s3 inet dhcp
+
+Després de reanomenar l'interfície:
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet dhcp
+
+
+# CONFIGURACIÓ DE LES INTERFÍCIES
+---------------------------------
+
+La configuració manual es fa sobre el fitxer /etc/network/interfaces on es poden
+assignar interfícies automàtiques, és a dir, que demanin els paràmetres de xarxa
+a un servidor DHCP o de manera estàtica on l'administrador introdueix cada un
+amb els valors que vol.
+
+Exemple configuració dinàmica:
+
+	# This file describes the network interfaces available on your system
+	# and how to activate them. For more information, see interfaces(5).
+
+	source /etc/network/interfaces.d/*
+
+	# The loopback network interface
+	auto lo
+	iface lo inet loopback
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet dhcp
+
+Exemple configuració estàtica:
+
+	# This file describes the network interfaces available on your system
+	# and how to activate them. For more information, see interfaces(5).
+
+	source /etc/network/interfaces.d/*
+
+	# The loopback network interface
+	auto lo
+	iface lo inet loopback
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet static
+			address 192.168.1.50
+			netmask 255.255.255.0
+			network 192.168.1.0
+			gateway 192.168.1.1
+			dns-nameservers 8.8.8.8
+
+Per poder re-negociar una nova direcció ip i els nous paràmetres es fa
+amb la comanda:
+	# dhclient -v -r <nom interfície>
+
+D'altra banda es pot configurar una interfície en viu, pot estar activa o desactivada
+i se li pot assignar els paràmetres necessaris amb la comanda:
+	# ip link set dev <interface> <parametre> <valor>
+
+També:
+	# ip addr add <ip dir with cidr> dev <interface>
+
+Exemple:
+
+	# ip link set dev itiel0 name eth0
+	# ip link set dev itiel0 address 00:80:c8:f8:be:ef
+	# ip link set dev itiel0 alias itiel_fisica
+	# ip addr add 192.168.1.20/24 dev itiel0
+	
+	
+Per acabar la configuració de l'interfície, és molt important saber si aquesta està bé,
+ja que es podría deixar sense comunicació a la màquina que s'està fent canvis.
+
+Amb la mateixa eina que s'activen les interfícies, amb uns paràmetres es pot veure
+si tot està correcte:
+
+	# sudo ifup --no-act <nom interfície>
+
+Per exemple, en cas d'estar tot correcte es veuría una sortida semblant a aquesta:
+	
+	$ sudo ifup --no-act eth0
+	ifup: interface eth0 already configured
+
+I en el cas advers:
+
+	$ sudo ifup --no-act eth0
+	/etc/network/interfaces:11: unknown method
+	ifup: couldn't read interfaces file "/etc/network/interfaces"
+
+
+# CONÈIXER IP EXTERNA
+---------------------
+
+Existeixen diverses formes, com per exemple les que s'esmentaran a continuació:
+	
+	1. Fer un ping a una ip externa, p.ex. a google.
+	2. Descarregar el recurs d'una pàgina web on indica l'ip pública del client mitjançant
+	   un llenguatge de programació web. P.ex. PHP.
+	3. Fent consultes DNS.
+
+Per poder conèixer l'ip externa per a cada interfície s'ha de canviar la ruta
+per defecte que té sortida a internet.
+
+Mostrar rutes:
+
+	$ ip route list
+
+Esborra ruta per defecte:
+
+	# ip route del default
+
+Ruta que farà servir:
+
+	# ip route add default via <gateway> dev <interface>
+
+Exemple:
+
+	# ip route add default via 192.168.1.1 dev eth1
+
+Per forçar a que depenent de la xarxa tingui una sortida o una d'altre:
+	
+	# ip route add <network> via <gateway> dev <interface>
+
+Exemple:
+
+	# ip route add 192.168.10.0/24 via 192.168.1.1 dev eth0
+
+A partir d'aquest moment les peticions a qualsevol ruta aniran per la eth1 excepte les
+que van cap a la xarxa 192.168.10.0 que aniran per la interfície eth0
+
+
+# RESOLUCIÓ DE NOMS
+-------------------
+
+Existeixen dues formes principalment de configurar i reconèixer hosts i xarxes. La primera
+forma es configurar-ho de manera local on es pot indicar donat un host un dns i un àlies
+en el fitxer /etc/hosts de manera que la primera columna representa l'ip de la màquina,
+la segona el dns i l'última s'especifica un àlies.
+
+Exemple:
+	
+	root@seax:~# cat /etc/hosts
+	127.0.0.1	localhost
+	127.0.1.1	seax.epsevg.upc.edu	seax
+
+Per un altra banda, del mateix mode, es troba el fitxer /etc/networks on es poden assignar
+les diferents xarxes que es coneixen. Les interfícies de la pròpia màquina que no tinguin
+especificat un nom per a la seva xarxa s'entén com que és la per defecte (0.0.0.0).
+
+Exemple:
+
+	root@seax:~# cat /etc/networks
+	default		0.0.0.0
+	loopback	127.0.0.0
+
+D'altra banda, es pot demanar al/s servidor/s DNS que ofereix el DHCP o bé, va ser configurat de
+manera estàtica per l'administrador de la xarxa, i que donada una ip, es pot saber quin nom té 
+l'equip i la xarxa si es que en tenen de configurats.
+
+Per exemple, en aquest cas nomès es mostra el registre PTR:
+
+	En el primer exemple es mostrarà el nom de la xarxa:
+
+	root@seax:~# dig @10.0.5.3 -x 147.83.201.96 +short
+	clients-xsf-96.upc.es.
+	root@seax:~#
+
+	En aquest cas es mostra el nom d'un equip:
+	
+	root@seax:~# dig @10.0.5.3 -x 147.83.45.72 +short
+	bibvg-portatil02.upc.es.
+	root@seax:~#
+
+	Pregunta quin nom té la següent xarxa:
+
+	root@seax:~# dig @10.0.5.3 -x 127.0.0.0 +short
+	localhost.
+	root@seax:~#
+
+
+# RECONEIXER INTERFÍCIE WIFI
+----------------------------
+
+Quan es connecta el "dongle" usb de la targeta wifi a la màquina host aquest s'ha d'alliberar
+d'aquesta i passar-li el control a la màquina virtual, fent un pont entre màquines host i guest.
+
+Per fer-ho s'ha d'anar a paràmetres de la màquina virtual i en configuracions USB primer posar
+Controlador USB 2.0 (EHCI) per a evitar problemes de incompatibilitat i seguidament clicar sobre
+el checkbox de la targeta per a que es passi el control.
+
+És molt útil afegir un filtre en aquest mateix menú per a què s'auto-passi el control cada cop
+que s'endolla la targeta USB o s'arrenca la màquina guest.
+
+
+# INSTAL·LACIÓ DEL DRIVER
+-------------------------
+
+Normalment en el procediment de reconeixement de la targeta wifi usb, el propi virtualbox dona
+una certa idea de qui és el fabricant, si no es sap, i així poder descàrregar de la web els drivers
+necessaris per poder fer-la servir.
+
+En l'escenari que s'ha fet la pràctica ha estat necessari instal·lar dos tipus de drivers diferents;
+realtek i ralink.
+
+Per saber quin tipus de driver és necessari i hauría d'haver carregat el sistema operatiu es pot fer:
+
+	root@seax:~# lsusb
+	Bus 001 Device 005: ID 148f:5370 Ralink Technology, Corp. RT5370 Wireless Adapter
+	.
+	.
+	.
+	root@seax:~# 
+
+Amb aquesta comanda es pot veure que a priori està fent servir el driver RT5370.
+
+En aquesta altre està fent servir el driver RTL8188EUS.
+
+	root@seax:~# lsusb
+	Bus 001 Device 006: ID 0bda:8179 Realtek Semiconductor Corp. RTL8188EUS 802.11n Wireless Network Adapter
+	.
+	.
+	.
+	root@seax:~#
+
+En el cas de la realtek ha estat necessari descarrgar el driver rtl8188eufw.bin i ficar-lo en el path
+/lib/firmware/rtlwifi/.
+
+En el cas de la ralink ha estat necessari modificar els sources list (/etc/apt/sources.list) i afegir
+una nova linea; deb http://ftp.es.debian.org/debian/ stretch main contrib non-free
+
+Desprès s'han instal·lat els drivers amb la comanda:
+
+	# apt-get install firmware-ralink
+
+I ha descarregat el firmware en /lib/firmware/ com es mostra:
+
+	root@seax:~# ls /lib/firmware/ | grep "rt"
+	rt2561.bin
+	rt2561s.bin
+	rt2661.bin
+	rt2860.bin
+	rt2870.bin
+	rt3070.bin
+	rt3071.bin
+	rt3090.bin
+	rt3290.bin
+	rt73.bin
+	rtlwifi
+	root@seax:~#
+
+Per últim, un altre forma de saber exactament el driver que ha carregat el sistema operatiu i on es troba:
+
+	root@seax:~# dmesg | grep firmware
+	[  878.942000] r8188eu 1-1:1.0: firmware: direct-loading firmware rtlwifi/rtl8188eufw.bin
+	.
+	.
+	.
+	root@seax:~#
+
+Com es mostra en la següent captura, el firmware de la ralink no és el 5370 sino, s'està fent servir el
+firmware rt2870.bin. El primer valor correspon al manufacturer.
+
+	root@seax:~# dmesg | grep firmware
+	.
+	.
+	.
+	[ 5489.262530] rt2800usb 1-1:1.0: firmware: direct-loading firmware rt2870.bin
+	[ 5489.262532] ieee80211 phy2: rt2x00lib_request_firmware: Info - Firmware detected - version: 0.36
+	root@seax:~# 
+
+
+# CONFIGURACIÓ D'INTERFÍCIES WIFI
+---------------------------------
+
+Aquest tipus de dispositius es tracten del mateix mode que qualsevol altre targeta física, nomès
+s'ha de configurar amb els paràmetres pertinents. En aquest cas són afegir el nom de la xarxa i
+la clau com a mínim, es pot entrar més en detall i indicar-hi si la xarxa és oculta, quin tipus
+de xifrat té, etc.
+
+Aquestes s'han de gestionar en el /etc/networks/interfaces.
+
+Exemple:
+
+	auto wlx0857000f10a2
+	iface wlx0857000f10a2 inet dhcp
+		wpa-ssid pavo
+		#psk="itielico321"
+		wpa-psk 58e5a0f588320a37aefd935676fdb925aaf215be2d807c90d08a99fa8d1377a8
+
+On la clau és un resum hash junt amb el nom de la xarxa (SSID) que es fà amb la comanda:
+	
+	$ wpa_passphrase 
+
+Exemple:
+
+	root@seax:~# wpa_passphrase pavo pavapava
+	network={
+		ssid="pavo"
+		#psk="pavapava"
+		psk=58e5a0f588320a37aefd935676fdb925aaf215be2d807c90d08a99fa8d1377a8
+	}
+	root@seax:~#
+
+Una altre manera de configurar-la es mitjançant el paquet wpa_supplicant que previament s'ha d'instal·lar.
+
+Un exemple de configuració:
+
+	auto wlx0857000f10a2
+	iface wlx0857000f10a2 inet dhcp
+		wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+
+Fitxer wpa_supplicant.conf:
+
+	root@seax:~# cat /etc/wpa_supplicant/wpa_supplicant.conf
+	ctrl_interface=/var/run/wpa_supplicant
+
+	network={
+		    ssid="pavo"
+		    psk=58e5a0f588320a37aefd935676fdb925aaf215be2d807c90d08a99fa8d1377a8
+	}
+	root@seax:~#
+
+
+Un cop configurada l'interfície i a més estigui propera a la xarxa sense fils, es pot aixecar per a què
+obtingui paràmetres per dhcp i es vinculi amb la xarxa:
+
+	# ifup wlx0857000f10a2
+
+
+Per asegurar la vinculació amb la xarxa es pot fer de dues maneres, la primera amb una comanda 
+obsoleta i sense guaranties a partir de Debian 10 i l'altre amb l'eina actualitzada.
+
+Primera forma:
+
+	$ iwconfig [interfície]
+
+Exemple:
+
+	root@seax:~# iwconfig wlx0857000f10a2 
+	wlx0857000f10a2  IEEE 802.11bgn  ESSID:"pavo"  Nickname:"<WIFI@REALTEK>"
+		      Mode:Managed  Frequency:2.437 GHz  Access Point: C4:0B:CB:45:90:9D   
+		      Bit Rate:72.2 Mb/s   Sensitivity:0/0  
+		      Retry:off   RTS thr:off   Fragment thr:off
+		      Encryption key:****-****-****-****-****-****-****-****   Security mode:open
+		      Power Management:off
+		      Link Quality=100/100  Signal level=69/100  Noise level=0/100
+		      Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+		      Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+	root@seax:~#
+
+Segona forma:
+
+	# iw dev wlx0857000f10a2 link
+
+Exemple:
+
+	root@seax:~# iw dev wlx0857000f10a2 link
+	Not connected.
+	root@seax:~#
+
+
+També es pot connectar de forma manual amb una xarxa emprant les dues comandes anteriors respectivament.
+
+Primer exemple:
+	
+	root@seax:~# iwconfig wlx0857000f10a2
+	wlx0857000f10a2  unassociated  ESSID:""  Nickname:"<WIFI@REALTEK>"
+		      Mode:Managed  Frequency=2.437 GHz  Access Point: Not-Associated   
+		      Sensitivity:0/0  
+		      Retry:off   RTS thr:off   Fragment thr:off
+		      Encryption key:off
+		      Power Management:off
+		      Link Quality:0  Signal level:0  Noise level:0
+		      Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+		      Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+	root@seax:~# iwconfig wlx0857000f10a2 essid "pavo" key s:pavapava
+	root@seax:~# iwconfig wlx0857000f10a2
+	wlx0857000f10a2  IEEE 802.11bgn  ESSID:"pavo"  Nickname:"<WIFI@REALTEK>"
+		      Mode:Managed  Frequency:2.437 GHz  Access Point: C4:0B:CB:45:90:9D   
+		      Bit Rate:72.2 Mb/s   Sensitivity:0/0  
+		      Retry:off   RTS thr:off   Fragment thr:off
+		      Encryption key:****-****-****-****-****-****-****-****   Security mode:open
+		      Power Management:off
+		      Link Quality=95/100  Signal level=76/100  Noise level=0/100
+		      Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+		      Tx excessive retries:0  Invalid misc:0   Missed beacon:0
+
+	root@seax:~#
+
+
+Segon exemple vàlid per xifrats WEP (en aquest escenari no s'ha fet servir):
+	# iw wlan0 connect -w Cisco key 0:1234567890
+
+Tercer exemple WPA/WPA2:
+
+	root@seax:~# wpa_passphrase .:RouteR:. >> /etc/wpa_supplicant.conf
+	my_pass_phrase
+	root@seax:~# cat /etc/wpa_supplicant.conf 
+	# reading passphrase from stdin
+	network={
+		ssid=".:RouteR:."
+		#psk="my_pass_phrase"
+		psk=f8ad37101b7cbe2bfb166d963954aa87e04a2f7f3e593cf97f16ba4dae1ed54e
+	}
+
+	root@seax:~# wpa_supplicant -B -D wext -i wlx00117f494b67 -c /etc/wpa_supplicant.conf
+	Successfully initialized wpa_supplicant
+	ioctl[SIOCSIWENCODEEXT]: Invalid argument
+	ioctl[SIOCSIWENCODEEXT]: Invalid argument
+
+
+Es comprova si s'ha associat correctament:
+
+	root@seax:~# iw wlx00117f494b67 link
+	Connected to 80:3f:5d:b3:b2:67 (on wlx00117f494b67)
+		SSID: .:RouteR:.
+		freq: 2462
+		RX: 13733 bytes (107 packets)
+		TX: 1151 bytes (12 packets)
+		signal: -21 dBm
+		tx bitrate: 1.0 MBit/s
+
+		bss flags:	short-slot-time
+		dtim period:	1
+		beacon int:	100
+	root@seax:~#
+
+Es demana una ip al punt d'accès:
+
+	root@seax:~# dhclient wlx00117f494b67
+	root@seax:~#
+
+Es mostra quins paràmetres ha donat a l'interfície:
+
+	root@seax:~# ip addr show wlx00117f494b67 
+	6: wlx00117f494b67: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+		link/ether 00:11:7f:49:4b:67 brd ff:ff:ff:ff:ff:ff
+		inet 192.168.1.251/24 brd 192.168.1.255 scope global wlx00117f494b67
+		   valid_lft forever preferred_lft forever
+		inet6 fe80::211:7fff:fe49:4b67/64 scope link 
+		   valid_lft forever preferred_lft forever
+	root@seax:~#
+
+Es mostra l'associació:
+
+	root@seax:~# iwconfig wlx00117f494b67 
+	wlx00117f494b67  IEEE 802.11  ESSID:".:RouteR:."  
+		      Mode:Managed  Frequency:2.462 GHz  Access Point: 80:3F:5D:B3:B2:67   
+		      Bit Rate=1 Mb/s   Tx-Power=20 dBm   
+		      Retry short limit:7   RTS thr:off   Fragment thr:off
+		      Encryption key:off
+		      Power Management:off
+		      Link Quality=70/70  Signal level=-21 dBm  
+		      Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+		      Tx excessive retries:0  Invalid misc:12   Missed beacon:0
+
+	root@seax:~#
+
+
+# ESCANEIG XARXES SENSE FILS
+----------------------------
+
+Continuant amb les dues formes bàsiques de treballar, la comanda obsoleta (iwlist) i la actualitzada (iw)
+es pot fer un escaneig de les diferents xarxes sense fils que es troben a l'abast.
+
+Per exemple:
+
+	root@seax:~# iwlist wlx0857000f10a2 scan
+	wlx0857000f10a2  Scan completed :
+	.
+	.
+	.
+
+	Cell 04 - Address: C4:0B:CB:45:90:9D
+                    ESSID:"pavo"
+                    Protocol:IEEE 802.11bgn
+                    Mode:Master
+                    Frequency:2.437 GHz (Channel 6)
+                    Encryption key:on
+                    Bit Rates:108 Mb/s
+                    Extra:rsn_ie=30140100000fac040100000fac040100000fac020c00
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers (1) : CCMP
+                        Authentication Suites (1) : PSK
+                    Quality=0/100  Signal level=70/100
+	.
+	.
+	.
+	root@seax:~#
+
+
+Escanejat de les xarxes amb iw: 
+
+	root@seax:~# iw wlx00117f494b67 scan
+	.
+	.
+	.
+	BSS c4:0b:cb:45:90:9d(on wlx00117f494b67)
+		TSF: 3344892584 usec (0d, 00:55:44)
+		freq: 2437
+		beacon interval: 100 TUs
+		capability: ESS Privacy ShortPreamble ShortSlotTime (0x0431)
+		signal: -27.00 dBm
+		last seen: 6436 ms ago
+		Information elements from Probe Response frame:
+		SSID: pavo
+		Supported rates: 1.0* 2.0* 5.5* 11.0* 
+		DS Parameter set: channel 6
+		ERP: <no flags>
+		Extended supported rates: 6.0 9.0 12.0 18.0 24.0 36.0 48.0 54.0 
+		RSN:	 * Version: 1
+			 * Group cipher: CCMP
+			 * Pairwise ciphers: CCMP
+			 * Authentication suites: PSK
+			 * Capabilities: 16-PTKSA-RC 1-GTKSA-RC (0x000c)
+		HT capabilities:
+			Capabilities: 0x12c
+				HT20
+				SM Power Save disabled
+				RX HT20 SGI
+				RX STBC 1-stream
+				Max AMSDU length: 3839 bytes
+				No DSSS/CCK HT40
+			Maximum RX AMPDU length 65535 bytes (exponent: 0x003)
+			Minimum RX AMPDU time spacing: No restriction (0x00)
+			HT RX MCS rate indexes supported: 0-7
+			HT TX MCS rate indexes are undefined
+		HT operation:
+			 * primary channel: 6
+			 * secondary channel offset: no secondary
+			 * STA channel width: 20 MHz
+			 * RIFS: 0
+			 * HT protection: nonmember
+			 * non-GF present: 0
+			 * OBSS non-GF present: 0
+			 * dual beacon: 0
+			 * dual CTS protection: 0
+			 * STBC beacon: 0
+			 * L-SIG TXOP Prot: 0
+			 * PCO active: 0
+			 * PCO phase: 0
+		WMM:	 * Parameter version 1
+			 * u-APSD
+			 * BE: CW 15-1023, AIFSN 3
+			 * BK: CW 15-1023, AIFSN 7
+			 * VI: CW 7-15, AIFSN 2, TXOP 3008 usec
+			 * VO: CW 3-7, AIFSN 2, TXOP 1504 usec
+		.
+		.
+		.
+		root@seax:~#
+
+Per fer un script i fer servir nomès les interfícies sense fils és molt útil saber si per
+cada una conectada al sistema que es troben a /sys/class/net/<interfície> té la carpeta
+wireless.
+
+Exemple:
+
+	root@seax:~# ls /sys/class/net/
+	enp0s8	enp0s9	itiel0	lo  wlx00117f494b67
+	root@seax:~# ls /sys/class/net/itiel0/wireless
+	ls: no s’ha pogut accedir a '/sys/class/net/itiel0/wireless': El fitxer o directori no existeix
+	root@seax:~# ls /sys/class/net/wlx00117f494b67/wireless
+	root@seax:~#
+
+En aquest cas es sap que itiel0 és una interfície física (ethernet) i que wlx00117f494b67 és wifi.
+
+
+# PROGRAMAR UN SHELL SCRIPT
+---------------------------
+
+Amb qualsevol editor de textos es pot programar un script shell, s'ha d'indicar quin tipus
+d'interpret ho executarà i respectar la sintaxis que cascacún d'aquests els hi conformen les 
+instruccions per poder realitzar un algoritme.
+
+És molt important procurar no cometre errors amb fitxers crítics del sistema, és convenient
+fer un backup. Si el fitxer és d'internet, és a dir, d'una font no confiable, s'hauría de
+procurar d'interpretar què és el que fa l'script i a quin nivell de sistema està fent
+consultes i modificacions.
+
+Per poder executar correctament l'script, és molt apropiat tenir els paquets amb les versions
+en que es va realitzar aquest per evitar problemes amb incompatibilitats. Si n'és
+l'administrador, creador del shell script, de tant en tant s'hauría de provar amb els paquets
+actualitzats.
+
+
+# Pràctica 1 - Sessió 4 - Accés al servidor mitjançant SSH. (Luque Díaz, Itiel)
+-------------------------------------------------------------------------------
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Gestor de textos
+* Shell bash
+* Client ssh (apt-get install openssh-client)
+* Servidor ssh (apt-get install openssh-server)
+* Navegador web en bash (apt-get install lynx)
+
+
+# FITXERS RELACIONATS
+---------------------
+
+* /etc/network/interfaces						-->	Configuració de les interfícies
+* /etc/udev/rules.d/70-persistent-net.rules		--> Configuracions permanents de xarxa
+* /etc/hosts									--> Hosts coneguts amb el seu dns
+* /sys/class/net/<interfície>					--> Estadístiques de les interfícies
+* /etc/ssh_config								--> Configuració ssh del client
+* /etc/sshd_config								--> Configuració ssh del servidor
+
+
+# DESCRIPCIÓ
+------------
+
+La seguretat és molt important avui dia, sobretot quan es tracta de connexions remotes que no es sap qui
+pot estar en el mig escoltant els paquets que s'intercanvien entre emissor i receptor i pitjor encara,
+no se'n té ni idea de quines intencions té aquest tercer.
+Molt sovint tan sols no és per seguretat, sinó, per poder administrar una màquina que està geogràficament
+en un altre punt que no es pot accedir físicament.
+Per això, s'empren mecanismes per donar una certa guarantía i protegir la comunicació de punt a punt.
+
+
+# INSTAL·LACIÓ SSH
+------------------
+
+S'ha de determinar si la màquina ja té la comanda instal·lada. Primerament es comprovarà
+si es té el client:
+
+	itiel@X550JX:~$ dpkg -l | grep "openssh-client"
+	ii  openssh-client                             1:7.6p1-4ubuntu0.3                           amd64        secure shell (SSH) client, for secure access to remote machines
+	itiel@X550JX:~$ dpkg -l | grep "openssh-client"
+
+Un altre comanda és:
+
+	itiel@X550JX:~$ whereis ssh
+	ssh: /usr/bin/ssh /etc/ssh /usr/share/man/man1/ssh.1.gz
+	itiel@X550JX:~$
+
+Per comprovar si el server està instal·lat, del mateix mode es fa servir:
+
+	entel@monitor:~$ dpkg -l | grep "ssh"
+	ii  libssh2-1:amd64               1.7.0-1                        amd64        SSH2 client-side library
+	ii  openssh-client                1:7.4p1-10+deb9u5              amd64        secure shell (SSH) client, for secure access to remote machines
+	ii  openssh-server                1:7.4p1-10+deb9u5              amd64        secure shell (SSH) server, for secure access from remote machines
+	ii  openssh-sftp-server           1:7.4p1-10+deb9u5              amd64        secure shell (SSH) sftp server module, for SFTP access from remote machines
+	ii  ssh                           1:7.4p1-10+deb9u5              all          secure shell client and server (metapackage)
+	entel@monitor:~$
+
+A l'igual que el client es pot mirar si està la comanda que executa el dimoni del servidor:
+
+	entel@monitor:~$ whereis sshd
+	sshd: /usr/sbin/sshd /usr/share/man/man8/sshd.8.gz
+	entel@monitor:~$
+
+Així de la mateixa manera que es pot mirar amb la comanda dpkg es pot mirar amb el gestor
+de paquets apt:
+
+	root@monitor:~# apt list --installed | grep ssh
+
+	WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+	libssh2-1/stable,now 1.7.0-1 amd64 [instal·lat,automàtic]
+	openssh-client/stable,stable,now 1:7.4p1-10+deb9u5 amd64 [instal·lat]
+	openssh-server/stable,stable,now 1:7.4p1-10+deb9u5 amd64 [instal·lat,automàtic]
+	openssh-sftp-server/stable,stable,now 1:7.4p1-10+deb9u5 amd64 [instal·lat,automàtic]
+	task-ssh-server/stable,now 3.39 all [instal·lat]
+	root@monitor:~#
+
+També es pot mirar si està corrent el dimoni del servidor:
+
+	entel@monitor:~$ ps -u entel | grep sshd
+	  446 ?        00:00:00 sshd
+	entel@monitor:~$
+
+NOTA: Aquest no ha d'estar corrent necessàriament encara que estigui instal·lat.
+
+
+Un cop s'està segur, si s'ha d'instal·lar qualsevol dels dos, es fà:
+
+	Client --> # apt-get install openssh-client
+	Server --> # apt-get install openssh-server
+
+
+# CONFIGURACIÓ DE L'SSH
+-----------------------
+
+Hi ha dos fitxers bàsics per aquest servei, que són primordialment el del client i el del servidor.
+Aquests es troben en /etc/ssh que són l'ssh_config i sshd_config respectivament.
+
+Per garantir una bona seguretat adicional del costat del server es poden configurar diferents directives al fitxer,
+unes de tantes són:
+
+	* LoginGraceTime: Estableix un temps per a introduir la contrasenya.
+	* MaxAuthTries: Quantitat d'intents abans de desconnectar a l'usuari.
+	* MaxStartups: Màximes sessiones simultànies amb una mateixa ip.
+	* AllowUsers: "Llista blanca" amb els usuaris permesos que es poden connectar.
+	* DenyUsers: "Llista negra" amb els usuaris que no es permet la connexió.
+	* AllowGroups/DenyGroups: Llista per grups amb els grups d'usuaris permesos/denegats.
+
+Per reforçar el login dels usuaris i nomès permetre la connexió amb certificats s'ha de canviar la directiva:
+
+	"PasswordAuthentication yes" S'ha de possar a no.
+
+Existeix una altre relacionada amb aquesta que s'hauría d'assegurar-se'n per no deixar als usuaris sense connectivitat
+amb el servidor ssh:
+
+	"PubkeyAuthentication" Aquesta hauría d'estar a yes per permetre l'auntencicació amb clau pública.
+
+I una altre que denega la interacció amb el teclat durant el login, és a dir, l'autenticació per contrasenya:
+
+	"ChallengeResponseAuthentication" Hauría d'estar a no per assolir aquesta restricció.
+
+També per assegurar que el servidor no permet autenticació de les contrasenyes dels usuaris emmagatzemades en /etc/shadow
+s'hauría de canviar el valor a "no" per a la directiva:
+
+	"UsePAM" yes
+
+Del costat del client es poden configurar directives com el port, el tipus de xifrat, on s'emmagatzemen les claus
+del servidor, el caràcter d'escapament, indicar si la connexió és un tunnel, el tipus de tunnel, si es fa servir
+un proxy, etc.
+
+Exemple:
+
+	itiel@X550JX:~$ cat /etc/ssh/ssh_config
+	.
+	.
+	.
+	Host *
+	#   ForwardAgent no
+	#   ForwardX11 no
+	#   ForwardX11Trusted yes
+	#   PasswordAuthentication yes
+	#   HostbasedAuthentication no
+	#   GSSAPIAuthentication no
+	#   GSSAPIDelegateCredentials no
+	#   GSSAPIKeyExchange no
+	#   GSSAPITrustDNS no
+	#   BatchMode no
+	#   CheckHostIP yes
+	#   AddressFamily any
+	#   ConnectTimeout 0
+	#   StrictHostKeyChecking ask
+	#   IdentityFile ~/.ssh/id_rsa
+	#   IdentityFile ~/.ssh/id_dsa
+	#   IdentityFile ~/.ssh/id_ecdsa
+	#   IdentityFile ~/.ssh/id_ed25519
+	#   Port 22
+	#   Protocol 2
+	#   Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc
+	#   MACs hmac-md5,hmac-sha1,umac-64@openssh.com
+	#   EscapeChar ~
+	#   Tunnel no
+	#   TunnelDevice any:any
+	#   PermitLocalCommand no
+	#   VisualHostKey no
+	#   ProxyCommand ssh -q -W %h:%p gateway.example.com
+	#   RekeyLimit 1G 1h
+		SendEnv LANG LC_*
+		HashKnownHosts yes
+		GSSAPIAuthentication yes	
+	itiel@X550JX:~$
+	
+Per validar les configuracions es fa amb el paràmetre -t:
+
+	# /usr/sbin/sshd -t
+
+Existeixen diverses eines que ajuden a trobar forats en la seguretat del servidor ssh, en aquest
+cas es mostraran dues, una online i l'altre és un script python:
+
+https://sshcheck.com/server/ahto.epsevg.upc.edu/
+https://github.com/arthepsy/ssh-audit
+
+Exemple de la pàgina web on es pot auditar el servidor ahto.epsevg.upc.edu:
+
+Rebex SSH Test result for ahto.epsevg.upc.edu:22
+
+	General information
+	Server Identification: 	SSH-2.0-OpenSSH_7.2p2 Ubuntu-4ubuntu2.8
+	IP Address: 	147.83.13.21
+	Generated at: 	2019-03-09 12:32:37 UTC (4 seconds ago)
+	Key Exchange Algorithms
+	diffie-hellman-group-exchange-sha256 	
+	Diffie-Hellman with MODP Group Exchange with SHA-256 hash
+		Secure
+	curve25519-sha256@libssh.org 	
+	Elliptic Curve Diffie-Hellman on Curve25519 with SHA-256 hash
+		Secure
+	ecdh-sha2-nistp256 	
+	Elliptic Curve Diffie-Hellman on NIST P-256 curve with SHA-256 hash
+	Possible NSA backdoor. 	Secure
+	ecdh-sha2-nistp384 	
+	Elliptic Curve Diffie-Hellman on NIST P-384 curve with SHA-384 hash
+	Possible NSA backdoor. 	Secure
+	ecdh-sha2-nistp521 	
+	Elliptic Curve Diffie-Hellman on NIST P-521 curve with SHA-512 hash
+	Possible NSA backdoor. 	Secure
+	diffie-hellman-group14-sha1 	
+	Diffie-Hellman with 2048-bit Oakley Group 14 with SHA-1 hash
+	Oakley Group 14 should be secure for now. SHA-1 is becoming obsolete, consider using SHA-256 version. 	Weak
+	.
+	.
+	.
+
+
+Exemple de l'script python ssh-audit sobre el servidor ahto.epsevg.upc.edu:
+
+	itiel@X550JX:~/ssh-audit$ ./ssh-audit.py ahto.epsevg.upc.edu
+	# general
+	(gen) banner: SSH-2.0-OpenSSH_7.2p2 Ubuntu-4ubuntu2.8
+	(gen) software: OpenSSH 7.2p2
+	(gen) compatibility: OpenSSH 7.2+, Dropbear SSH 2013.62+
+	(gen) compression: enabled (zlib@openssh.com)
+
+	# key exchange algorithms
+	(kex) curve25519-sha256@libssh.org          -- [info] available since OpenSSH 6.5, Dropbear SSH 2013.62
+	(kex) ecdh-sha2-nistp256                    -- [fail] using weak elliptic curves
+		                                    	`- [info] available since OpenSSH 5.7, Dropbear SSH 2013.62
+	(kex) ecdh-sha2-nistp384                    -- [fail] using weak elliptic curves
+		                                    	`- [info] available since OpenSSH 5.7, Dropbear SSH 2013.62
+	(kex) ecdh-sha2-nistp521                    -- [fail] using weak elliptic curves
+		                                    	`- [info] available since OpenSSH 5.7, Dropbear SSH 2013.62
+	(kex) diffie-hellman-group-exchange-sha256  -- [warn] using custom size modulus (possibly weak)
+		                                    	`- [info] available since OpenSSH 4.4
+	(kex) diffie-hellman-group14-sha1           -- [warn] using weak hashing algorithm
+		                                    	`- [info] available since OpenSSH 3.9, Dropbear SSH 0.53
+
+	# host-key algorithms
+	(key) ssh-rsa                               -- [info] available since OpenSSH 2.5.0, Dropbear SSH 0.28
+	(key) rsa-sha2-512                          -- [info] available since OpenSSH 7.2
+	(key) rsa-sha2-256                          -- [info] available since OpenSSH 7.2
+	(key) ecdsa-sha2-nistp256                   -- [fail] using weak elliptic curves
+		                                    	`- [warn] using weak random number generator could reveal the key
+		                                    	`- [info] available since OpenSSH 5.7, Dropbear SSH 2013.62
+	(key) ssh-ed25519                           -- [info] available since OpenSSH 6.5
+
+	# encryption algorithms (ciphers)
+	(enc) chacha20-poly1305@openssh.com         -- [info] available since OpenSSH 6.5
+		                                    	`- [info] default cipher since OpenSSH 6.9.
+	(enc) aes128-ctr                            -- [info] available since OpenSSH 3.7, Dropbear SSH 0.52
+	(enc) aes192-ctr                            -- [info] available since OpenSSH 3.7
+	(enc) aes256-ctr                            -- [info] available since OpenSSH 3.7, Dropbear SSH 0.52
+	(enc) aes128-gcm@openssh.com                -- [info] available since OpenSSH 6.2
+	(enc) aes256-gcm@openssh.com                -- [info] available since OpenSSH 6.2
+
+	# message authentication code algorithms
+	(mac) umac-64-etm@openssh.com               -- [warn] using small 64-bit tag size
+		                                    	`- [info] available since OpenSSH 6.2
+	(mac) umac-128-etm@openssh.com              -- [info] available since OpenSSH 6.2
+	(mac) hmac-sha2-256-etm@openssh.com         -- [info] available since OpenSSH 6.2
+	(mac) hmac-sha2-512-etm@openssh.com         -- [info] available since OpenSSH 6.2
+	(mac) hmac-sha1-etm@openssh.com             -- [warn] using weak hashing algorithm
+		                                    	`- [info] available since OpenSSH 6.2
+	(mac) umac-64@openssh.com                   -- [warn] using encrypt-and-MAC mode
+		                                    	`- [warn] using small 64-bit tag size
+		                                    	`- [info] available since OpenSSH 4.7
+	(mac) umac-128@openssh.com                  -- [warn] using encrypt-and-MAC mode
+		                                    	`- [info] available since OpenSSH 6.2
+	(mac) hmac-sha2-256                         -- [warn] using encrypt-and-MAC mode
+		                                    	`- [info] available since OpenSSH 5.9, Dropbear SSH 2013.56
+	(mac) hmac-sha2-512                         -- [warn] using encrypt-and-MAC mode
+		                                    	`- [info] available since OpenSSH 5.9, Dropbear SSH 2013.56
+	(mac) hmac-sha1                             -- [warn] using encrypt-and-MAC mode
+		                                    	`- [warn] using weak hashing algorithm
+		                                    	`- [info] available since OpenSSH 2.1.0, Dropbear SSH 0.28
+
+	# algorithm recommendations (for OpenSSH 7.2)
+	(rec) -ecdh-sha2-nistp521                   -- kex algorithm to remove 
+	(rec) -ecdh-sha2-nistp384                   -- kex algorithm to remove 
+	(rec) -ecdh-sha2-nistp256                   -- kex algorithm to remove 
+	(rec) -diffie-hellman-group14-sha1          -- kex algorithm to remove 
+	(rec) -ecdsa-sha2-nistp256                  -- key algorithm to remove 
+	(rec) -hmac-sha2-512                        -- mac algorithm to remove 
+	(rec) -umac-128@openssh.com                 -- mac algorithm to remove 
+	(rec) -hmac-sha2-256                        -- mac algorithm to remove 
+	(rec) -umac-64@openssh.com                  -- mac algorithm to remove 
+	(rec) -hmac-sha1                            -- mac algorithm to remove 
+	(rec) -hmac-sha1-etm@openssh.com            -- mac algorithm to remove 
+	(rec) -umac-64-etm@openssh.com              -- mac algorithm to remove 
+
+	itiel@X550JX:~/ssh-audit$
+
+
+# GENERACIÓ D'UN CERTIFICAT
+---------------------------
+
+Hi han diversos tipus de xifrats i de diferents longituds, quant més bits, més robust.
+
+Per saber l'impremta del certificat del servidor que per defecte es troben a /etc/ssh
+
+	root@monitor:/etc/ssh# ssh-keygen -lf ssh_host_ecdsa_key
+	256 SHA256:Db6R4MvFo2ZnKue8YoriRJCRZPyliBmsPgSvyx5HnCM root@seax (ECDSA)
+	root@monitor:/etc/ssh#
+
+La principal comanda per generar aquests tipus de certificats tant privats com públics es amb ssh-keygen:
+
+	# ssh-keygen -t rsa -C "your_email@example.com"
+
+Amb el paràmetre -t es pot escollir entre dsa, ecdsa, ed25519 i rsa.
+Amb el paràmetre -b es pot escollir la mida en bits del certificat, avui dia es recomana +2048 bits.
+Amb el paràmetre -N es pot emprar una frase com a clau del certificat que farà que sigui més robust.
+Amb el paràmetre -f es pot indicar la sortida, és a dir, on i quin nom tindrà el fitxer.
+
+Exemple:
+
+	root@monitor:~# ssh-keygen -t rsa -b 2048 -f /root/key
+	Generating public/private rsa key pair.
+	Enter passphrase (empty for no passphrase): 
+	Enter same passphrase again: 
+	Your identification has been saved in /root/key.
+	Your public key has been saved in /root/key.pub.
+	The key fingerprint is:
+	SHA256:nqf/kwF3U1W9OdtSzX/WMx0Pz0kSYDQ1OYUVdOo0DgI root@monitor
+	The key's randomart image is:
+	+---[RSA 2048]----+
+	|        E .=oo*=O|
+	|         .. .=..+|
+	|          . . *o+|
+	|          ...*+B+|
+	|        S  o .=*@|
+	|       . .  . .=@|
+	|        o .  o o+|
+	|         o  o    |
+	|        ......   |
+	+----[SHA256]-----+
+	root@monitor:~#
+
+
+# DISTRIBUCIÓ DEL CERTIFICAT
+----------------------------
+
+Un cop s'han generat les claus públiques i privades, la pública s'ha de transferir cap al servidor
+exactament a l'usuari que es vol connectar en $HOME/.ssh/authorized_keys amb els següents permisos:
+
+	root@monitor:~# ls -la | grep ".ssh"
+	-rw-------  1 root root    58 feb 28 15:52 .lesshst
+	drwx------  2 root root  4096 mar  7 18:50 .ssh
+	root@monitor:~# 
+
+	root@monitor:~/.ssh# ls -la | grep keys
+	-rw------- 1 root root  394 mar  7 18:50 authorized_keys
+	root@monitor:~/.ssh#
+
+Directament s'ha de copiar la clau pública en authorized_keys.
+
+NOTA: És possible que no existeixi l'estructura de carpetes.
+
+Per obligar a que els usuaris s'hagin de connectar mitjançant el certificat i que no puguin amb
+una contrasenya, és a dir, l'estàndard que es troba a l'/etc/passwd, s'ha de configurar el fitxer
+del dimoni ssh (/etc/ssh/sshd_config). S'han de modificar i habilitar les dues directives següents:
+
+	PasswordAuthentication no
+	AllowUsers root entel
+
+Per efectuar els canvis es important reinicialitzar el serveri:
+
+	# service sshd restart
+
+I si s'intenta connectar-se'n sense certificat:
+
+	itiel@X550JX:~$ ssh root@192.168.56.102
+	root@192.168.56.102: Permission denied (publickey).
+	itiel@X550JX:~$
+
+Per tant, serà necessari fer servir la clau privada per poder entrar.
+
+Altra forma de poder copiar la clau és passant-li al server amb una comanda abans d'inhabilitar
+a l'usuari l'accès amb password fent servir la comanda:
+
+	$ ssh-copy-id -i <clau pública>
+
+Desprès es pot connectat fent servir la clau copiada amb:
+
+	$ ssh -i <clau privada> <usuari>@<host>
+
+
+# TUNNEL SSH
+------------
+
+Existeixen dos tipus de tunnels, un de local i un de remot. Tot dependrà de l'escenari
+on es vullgui connectar.
+
+Per exemple, si es vol connectar a un ftp que no està exposat a internet, però, que si
+s'en té accès a un servidor SSH obert en la mateixa oficina, es pot accedir a aquest de
+manera com si estigués connectat localment.
+
+Exemple:
+
+	1. Servidor FTP en el port 21 amb ip 192.168.1.50
+	2. Servidor SSH en itiel.exemple.com on l'usuari podría ser itiel
+	3. Port 4000 on s'accedirà com si estigués l'FTP localment
+
+Comanda a executar:
+
+	# ssh -L 4000:localhost:21 itiel@itiel.example.com
+
+Desprès en un client FTP o al navegador, en el port 4000 a localhost, s'accedirà al FTP.
+
+Exemple amb una raspberry pi pròpia:
+
+	itiel@X550JX:~$ ssh -L 4000:localhost:80 pi@192.168.1.127
+	pi@192.168.1.127's password: 
+	Linux raspberrypi 4.14.50-v7+ #1122 SMP Tue Jun 19 12:26:26 BST 2018 armv7l
+	HEEEEEY YOUUU. WHATSS UP BROOO?
+	Last login: Fri Mar  8 15:18:08 2019 from 192.168.1.40
+
+	SSH is enabled and the default password for the 'pi' user has not been changed.
+	This is a security risk - please login as the 'pi' user and type 'passwd' to set a new password.
+
+	pi@raspberrypi:~ $ 
+
+	itiel@X550JX:~$ lynx localhost:4000
+                                                                                                   Apache2 Debian Default Page: It works (p1 of 2)
+	   Debian Logo Apache2 Debian Default Page
+	   It works!
+
+	.
+	.
+	.
+	pi@raspberrypi:~ $
+
+De manera inversa existeix el remot, preten donar accès a un recurs que està situat 
+en l'ordinador que es crea dit tunnel, ja sigui perquè està darrera un tallafocs o
+bé perquè no té port forwarding al router.
+
+Partint del mateix exemple, imaginem que es vol compartir l'accès al servidor FTP
+mitjançant un tunnel que es crearà a partir d'un SSH conegut:
+
+NOTA: Per poder habilitar aquest tipus de configuració en un servidor SSH propi s'ha
+	  de canviar aquesta directiva "GatewayPorts yes" en el fitxer /etc/sshd_config.
+
+Exemple:
+
+	1. Servidor FTP en el port 21 en localhost
+	2. Servidor SSH en itiel.exemple.com on l'usuari podría ser itiel
+	3. Port 4000 on s'accedirà com si estigués l'FTP localment
+	4. Port 21 és el que es tunnelitza amb l'esmentat anteriorment
+
+Comanda a executar:
+
+	# ssh -R 4000: localhost: 21 itiel@itiel.example.com
+
+Exemple, des de la raspberry es crea un tunnel amb ahto.epsevg.upc.edu per a que 
+aquesta sigui accesible per a una tercera màquina:
+
+	pi@raspberrypi:~ $ ssh -R 8888:localhost:22 e7841758@ahto.epsevg.upc.edu
+
+Ara amb la segona màquina s'accedeix a l'ahto:
+	
+	itiel@X550JX:~$ ssh e7841758@ahto.epsevg.upc.edu
+
+I dins de l'ahto ja es pot entrar a la raspberry pi des de la segona màquina fora de
+la xarxa mitjançant el tunnel remot:
+
+	e7841758@ahto:~$ ssh pi@localhost -p 8888
+
+
+A part d'aquests dos bàsics existeix un més, molt útil, que es semblant al tunnel local.
+Aquest es diu tunnel dinàmic i és molt semblant a un proxy.
+
+Per fer-lo servir, es pot fer amb la comanda:
+
+	# ssh -D 6666 itiel@ssh.lamevacasa.com
+
+Per tant, a partir d'aquest punt, es crearà un socket que fa servir el protocol SOCKS i
+es podrà accedir, previament configurada l'aplicació en qüestió en l'apartat proxy, als
+recursos que hi han en la xarxa remota (lamevacasa.com) dinàmicament, que vol dir, que 
+a partir del port 6666 ja s'encarrega en fer possible que tots els recursos estiguin
+disponibles, és a dir, es configura p.ex. un navegador web al port 6666, però, que en
+realitat fa servir el 80 i 443 i fa el tunnel entre els ports 6666 i 80/443.
+
+Tot el tràfic passa pel servidor remot, és a dir, si es navega en una wifi oberta amb
+el tunnel dinàmic, el tràfic esmentant, passa xifrat per SSH cap el servidor remot i es
+aquest qui fa de pont amb internet (p.ex: si s'ha configurat al navegador web).
+
+Si es mira l'ip amb la qual s'està navegant, és la del tunnel.
+
+NOTA: Per fer possible el tunnel, en el servidor s'ha d'activar la següent directiva a
+	  /etc/sshd_config "AllowTcpForwarding".
+
+
+# REFERÈNCIES BIBLIOGRÀFIQUES
+-----------------------------
+
+- https://www.virtualbox.org/manual/
+- https://wiki.debian.org/es/NetworkConfiguration
+- https://www.debian.org/doc/manuals/debian-reference/ch05.es.html
+- https://wiki.debian.org/es/WiFi
+- https://wiki.debian.org/es/SSH
+- http://ict.siit.tu.ac.th/help/iw
+- https://askubuntu.com/questions/75625/how-do-i-scan-for-wireless-access-points/76898
+- https://stackoverflow.com/questions/17809912/parsing-iw-wlan0-scan-output
+- https://wiki.archlinux.org/index.php/Wireless_network_configuration_(Espa%C3%B1ol)
+- https://www.redeszone.net/seguridad-informatica/servidor-ssh-en-linux-manual-de-configuracion-para-maxima-seguridad/
+- https://www.redeszone.net/2017/06/20/comprueba-la-seguridad-servidor-ssh-la-herramienta-online-rebex-ssh-check/?utm_source=related_posts&utm_medium=manual
+- https://www.redeszone.net/redes/ssh-tunneling/
+- https://blog.trackets.com/2014/05/17/ssh-tunnel-local-and-remote-port-forwarding-explained-with-examples.html
+- https://www.ssh.com/ssh/tunneling/example
+- https://www.howtogeek.com/168145/how-to-use-ssh-tunneling/

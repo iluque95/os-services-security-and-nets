@@ -1,0 +1,405 @@
+Pràctica 1 - Sessió 1 - Creació d'un servidor Debian amb VirtualBox. (Luque Díaz Itiel)
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* VirtualBox 6.0.4
+* ISO Debian 9.7 (net install)
+* Extensions Pack 6.0.4
+* GuestAdditions.iso
+* Editor de textos (Gedit p.exemple)
+* John the Ripper
+
+
+# DESCRIPCIÓ
+------------
+
+Per poder treballar en un entorn virtualitzat sense escriptori (entorn gràfic) es fa servir una eina que ho permeti, 
+en aquest cas VirtualBox, que en l'escenari que es farà servir, per ser més precisos, el sistema operatiu serà
+Linux, la distribució de Debian, on s'aprofitarà junt a aquesta, per poder explotar-la al màxim, les extensions que ofereix 
+l'eina virtualitzadora, on les característiques d'aquestes són permetre USB 2.0, 3.0, protocol RDP, fer boot des de xarxa (PXE), 
+encriptar el HDD i NVMe.
+En quant a les GuestAdditions ofereixen compartició de carpetes, arrosegar fitxers entre màquina host i guest, establir la 
+resolució màxima de la màquina host.
+A més en aquest entorn s'aprendrà a com fer servir correctament virtualbox per poder desplegar, mantenir i replicar les màquines 
+virtualitzades i com configurar-les.
+
+
+# ASPECTES A CONSIDERAR
+-----------------------
+
+Assegurar-se de que el virtualbox no està instal·lat:
+	$ which virtualbox
+també
+	$ whereis virtualbox
+	
+Comprovar si les extensions pack estan instal·lades en Arxiu>Preferències>Extensions del
+client virtualbox.
+
+De manera no gràfica es pot mirar de la següent forma (això és una prova a posteriori):
+
+	itiel@X550JX:~$ VBoxManage list extpacks
+	Extension Packs: 1
+	Pack no. 0:   Oracle VM VirtualBox Extension Pack
+	Version:      6.0.4
+	Revision:     128413
+	Edition:      
+	Description:  USB 2.0 and USB 3.0 Host Controller, Host Webcam, VirtualBox RDP, PXE ROM, Disk Encryption, NVMe.
+	VRDE Module:  VBoxVRDP
+	Usable:       true 
+	Why unusable:
+	itiel@X550JX:~$
+	
+	
+# INSTAL·LACIONS PRÈVIES
+------------------------
+	
+S'ha de descarregar i afegir les claus oficials del repositori virtualbox:
+	# wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | sudo apt-key add -
+	# wget -q https://www.virtualbox.org/download/oracle_vbox.asc -O- | sudo apt-key add -
+	
+	Per instal·lar-ho, s'actualitza la llista de paquets previament i seguidament es pot procedir:
+	# sudo apt-get update
+	# sudo apt-get install virtualbox-6.0
+	
+Ja es pot fer la instal·lació de les extensions pack des de la pròpia pàgina web del Virtualbox, en la secció de descàrregues hi ha                  
+un enllaç directe i que suggereix que s'obri amb el mateix virtualbox perquè aquest sigui l'encarregat de fer la instal·lació.
+
+D'altra banda també es pot instal·lar pel terminal: 
+	# sudo apt-get install virtualbox-ext-pack
+
+Una tercera forma desde el terminal es descarregar primer les extensions i desprès 
+instalar-les amb les eines que ofereix virtualbox, en aquest cas, vboxmanage.
+	$ wget "https://download.virtualbox.org/virtualbox/${vboxversion}/Oracle_VM_VirtualBox_Extension_Pack-${vboxversion}.vbox-extpack"
+	# sudo vboxmanage extpack install --replace Oracle_VM_VirtualBox_Extension_Pack-${vboxversion}.vbox-extpack
+	
+Un cop està tot llest en l'entorn gràfic en les ToolBar, s'ha de fer click en Màquina>Nova.
+La màquina ha de contenir les següents característiques:
+	* Nom: El que es vullgui.
+	* Tipus: Linux
+	* Versió: Debian (64 bits)
+	* Mida de la memòria: 512 MB
+	* Nou disc virtual VDI: 4 GB (dinàmic)
+	
+El següent pas és afegir el disc de instal·lació a la màquina en Configuració>Emmagatzenament
+i s'ha d'afegir un nou Controlador:IDE del tipus disc en la icona, concretament s'ha de seleccionar
+el disc que comporta la instal·lació del debian.
+
+S'arrenca la màquina virtual i com no conté res el disc dur arrenca el CDROM.
+Altrament pitjar F12 al arrencar la màquina i en el menú ràpid escollir CD-ROM.
+
+És imprescindible seleccionar Install on no aparegui la paraula "Graphic", no es vol disposar
+d'entorn gràfic, ja que és consum de memòria RAM, HDD i CPU innecessari.
+
+Configuració que es vol segons demanen les passes de l'instal·lador (són relatives, algunes són obvies i s'ignoren, com les d'idioma i hora local):
+	1. Hostname: seax.epsevg.upc.edu
+	2. Passwd root: toor
+	3. Nou usuari: telnet
+	4. Passwd telnet: letne
+	5. Mètode de partició: Guiat - utilitza el disc sencer
+	6. Partició /home separada
+	7. No volem fer servir més CDs/DVDs
+	8. Repositori Debian (Rèplica de l'arxiu): Espanya (ftp.es.debian.org)
+	9. Servidor intermediari HTTP: En blan per a cap.
+	10. Programari: SSH server i Utilitats estàndard del sistema.
+	11. Instal·lar grub en /dev/sda
+	
+Quan la màquina guest està funcionant i s'ha pogut accedir amb l'usuari root, s'ha de fer un apt-get update
+de la llista de paquets per poder instal·lar els que són necessaris per les GuestAdditions.
+
+En concret s'ha d'intal·lar un, i seguidament executar una comanda per preparar el kernel:
+	# apt-get install build-essential module-assistant
+	# m-a prepare
+	
+S'ha d'insertar el disc de les GuestAdditions que en el entorn gràfic del virtualbox es pot fer en 
+Dispositius>Insertar imatge de CD de les "GuestAdditions".
+
+Un cop inserit el CD s'haurà automuntat en la ruta /media/cdrom o /media/cdrom0, en la qual s'haura d'accedir
+per tal d'executar l'script:
+	# sh VBoxLinuxAdditions.run
+	
+Ja estàn instal·lades.
+
+# REPLICACIÓ DE LES MÀQUINES
+----------------------------
+
+La manera més ràpida i fàcil de poder replicar una màquina és fent un clon d'aquesta.
+
+Es pot fer tant per entorn gràfic com per comandes, en aquest cas s'explica pel segon mètode:
+$ VBoxManage clonevm <source-machine-name> --name <target-machine-name> --register
+
+Exemple:
+
+	itiel@X550JX:~$ VBoxManage list vms
+	"Debian" {382a9e2c-d8c0-46ca-9ddc-daf91ca06418}
+	itiel@X550JX:~$ 
+
+	itiel@X550JX:~$ VBoxManage clonevm Debian --name "Debian clonada" --register
+	0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+	Machine has been successfully cloned as "Debian clonada"
+	itiel@X550JX:~$ 
+
+	itiel@X550JX:~$ VBoxManage list vms
+	"Debian" {382a9e2c-d8c0-46ca-9ddc-daf91ca06418}
+	"Debian clonada" {ab282c42-78ad-4816-8f6d-08450de64c13}
+	itiel@X550JX:~$
+
+Un altre forma que permet compactar els fitxers de la màquina en un sol fitxer i poder replicar-la en 
+un altre sistema és exportant-la. O bé si es disposa d'una que ja ha estat exportada i es vol integrar.
+Com totes les eines, es pot fer per entorn gràfic o comandes en el terminal i un cop més es farà per la
+línia de comandes:
+
+Per exportar:
+$ VBoxManage export [Machine name] --output [Path to output and name of cloned machine with extension .ova]
+
+Per importar:
+$ VBoxManage import [Machine name] [Path of machine]
+
+Exemple:
+
+	itiel@X550JX:~$ VBoxManage list vms
+	"Debian" {382a9e2c-d8c0-46ca-9ddc-daf91ca06418}
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ VBoxManage export Debian --output VirtualBox\ VMs/Output.ova
+	0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+	Successfully exported 1 machine(s).
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ VBoxManage import VirtualBox\ VMs/Output.ova
+	0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+	Interpreting /home/itiel/VirtualBox VMs/Output.ova...
+	OK.
+	Disks:
+	  vmdisk2	4294967296	-1	http://www.vmware.com/interfaces/specifications/vmdk.html#streamOptimized	Output-disk002.vmdk	-1	-1	
+
+	Virtual system 0:
+	 0: Suggested OS type: "Debian_64"
+		(change with "--vsys 0 --ostype <type>"; use "list ostypes" to list all possible values)
+	 1: Suggested VM name "Debian 1"
+		(change with "--vsys 0 --vmname <name>")
+	 2: Suggested VM group "/"
+		(change with "--vsys 0 --group <group>")
+	 3: Suggested VM settings file name "/home/itiel/VirtualBox VMs/Debian 1/Debian 1.vbox"
+		(change with "--vsys 0 --settingsfile <filename>")
+	 4: Suggested VM base folder "/home/itiel/VirtualBox VMs"
+		(change with "--vsys 0 --basefolder <path>")
+	 5: Number of CPUs: 1
+		(change with "--vsys 0 --cpus <n>")
+	 6: Guest memory: 512 MB
+		(change with "--vsys 0 --memory <MB>")
+	 7: Sound card (appliance expects "", can change on import)
+		(disable with "--vsys 0 --unit 7 --ignore")
+	 8: USB controller
+		(disable with "--vsys 0 --unit 8 --ignore")
+	 9: Network adapter: orig NAT, config 3, extra slot=0;type=NAT
+	10: CD-ROM
+		(disable with "--vsys 0 --unit 10 --ignore")
+	11: IDE controller, type PIIX4
+		(disable with "--vsys 0 --unit 11 --ignore")
+	12: IDE controller, type PIIX4
+		(disable with "--vsys 0 --unit 12 --ignore")
+	13: SATA controller, type AHCI
+		(disable with "--vsys 0 --unit 13 --ignore")
+	14: Hard disk image: source image=Output-disk002.vmdk, target path=Output-disk002.vmdk, controller=13;channel=0
+		(change target path with "--vsys 0 --unit 14 --disk path";
+		disable with "--vsys 0 --unit 14 --ignore")
+	0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
+	itiel@X550JX:~$ 
+
+	itiel@X550JX:~$ VBoxManage list vms
+	"Debian" {382a9e2c-d8c0-46ca-9ddc-daf91ca06418}
+	"Debian 1" {e6e93398-2d0c-4489-9c59-08b6ceb0da0f}
+	itiel@X550JX:~$ 
+	
+Per fer una copia manualment s'ha de copiar la carpeta original i canviar alguns identificadors que fan que una
+màquina sigui única. Els més importants són els de la propia màquina "Machine UUID" i el del disc dur.
+Aquests s'han de modificar en la màquina, per exemple, en aquest cas, és la Debian.vbox, que en realitat és
+un fitxer XML que es pot modificar amb un editor de textos.
+La màquina ha d'estar aturada si es vol fer canvis sobre aquest, i és altament recomanable fer backup,
+a més d'intentar no modificar-lo mai tret que sigui per força major, ja que pot deixar la màquina inservible.
+
+Exemple:
+
+	Aquestes línies són trossos del fitxer original de la màquina còpia i aquest sense modificacions:
+		<Machine uuid="{382a9e2c-d8c0-46ca-9ddc-daf91ca06418}" name="Debian" ... >
+		<HardDisk uuid="{45e37ff9-62db-4f84-a0bc-b9b0a4251dc4}" location="Debian.vdi" ... >
+	
+	Aquesta és la comanda per generar un nou UUID al disc dur:
+		itiel@X550JX:~/VirtualBox VMs/Debian2$ VBoxManage internalcommands sethduuid Debian.vdi 
+		UUID changed to: c2dc3d57-cfac-4610-a567-7637d136099e
+		itiel@X550JX:~/VirtualBox VMs/Debian2$
+		
+	Finalment les línies queden d'aquesta manera:
+		<Machine uuid="{482a9e2c-d8c0-46ca-9ddc-daf91ca06420}" name="Debian Copied" ... >
+		<HardDisk uuid="{c2dc3d57-cfac-4610-a567-7637d136099e}" location="Debian.vdi" ... >
+			
+D'altra banda, si es necessita mantindre backups diferencials, és a dir, les ultimes modificacions
+que s'han realitzat sobre la màquina, es poden fer servir les instantànies, que brinden l'oportunitat
+de sempre tenir fins l'últim punt actual o crític que s'ha estat treballant, mantenint així, una
+còpia lleugera.
+
+Per poder realitzar aquest tipus de còpies, es poden fer amb la màquina executant-se, fent clic en les 
+ToolBar en la pestanya Màquina>Prendre una instantània.
+
+Així doncs, en qualsevol pas crític es pot fer una instantània i en cas de cometre erros, es pot restaurar
+fent click sobre la mateixa màquina en la GUI de VirtualBox, en la pestanya instantànies i escollint
+la desitjada.
+			
+# GESTIÓ DE LA XARXA
+--------------------
+
+En la configuració de la màquina, en la GUI de VirtualBox es pot trobar una secció relacionada amb la xarxa on 
+s'ofereix la possibilitat d'habilitar fins a quatre interfícies virtuals on es poden configurar mínimament.
+
+Hi ha diferents formes de connectar-se a la xarxa, a més es poden fer xarxes internes.
+
+*NAT: VirtualBox estableix una IP a la màquina de classe A i és fa una conversió NAT quan s'envien/reben paquets.
+*Adaptador pont: Es connecta a la xarxa física de la interfície física escollida.
+*Xarxa interna: Crea una xarxa interna sense accés a internet.
+
+Es pot gestionar la cada interfície en aquesta mateixa pestanya, però, per això és necessari posar el mitjà
+virtual com a adaptador pont on permetrà escollir entre les diferents interfícies físiques que estan instal·lades
+en la màquina host. Se les hi pot gestionar la seva MAC de forma manual, en opcions avançades.
+
+Per a configurar cadascuna de les interfícies amb els paràmetres desitjats depèn de cada sistema operatiu que es 
+farà servir, en aquest cas s'utilitzarà Debian, on la configuració es troba en /etc/network/interfaces.
+
+Una configuració automàtica podría ser aquesta:
+	
+	itiel@X550JX:~$ cat /etc/network/interfaces
+	# interfaces(5) file used by ifup(8) and ifdown(8)
+	auto lo
+	iface lo inet loopback
+	auto eth0
+    iface eth0 inet dhcp
+	itiel@X550JX:~$
+
+Per configurar-les estàtiques podría ser aquesta altre: 
+
+	itiel@X550JX:~$ cat /etc/network/interfaces
+	# interfaces(5) file used by ifup(8) and ifdown(8)
+	auto lo
+	iface lo inet loopback
+	auto eth0
+   	iface eth0 inet static
+        address 192.0.2.7
+        netmask 255.255.255.0
+        gateway 192.0.2.254
+	itiel@X550JX:~$
+	
+	
+# PERIFÈRICS I COMPARTICIÓ
+--------------------------
+
+La compartició de perifèrics i arxius entre màquina host i guest és una manera útil de treballar.
+Es pot compartir un llapis usb amb dades entre màquines anant a la configuració sobre la màquina en qüestió,
+en el menú USB permet habilitar el controlador i la versió que es vol fer servir.
+Després s'ha de muntar el dispositiu.
+
+Una altre manera es compartint carpetes, que es pot fer en el client del virtualbox quan la màquina està corrent,
+en la pestanya Dispositiu>Carpetes compartides>Preferències de les carpetes compartides.
+Clic en l'icona per afegir una nova carpeta del sistema de fitxers de l'host.
+Les característiques depenen de si es vol que nomès sigui de lectura, que s'automunti, el punt de muntatge
+i si es vol que sigui permanent.
+
+
+# ACCÉS REMOT
+-------------
+
+Una forma de poder gestionar les màquines de forma remota des de qualsevol lloc, dintre o fora de la mateixa xarxa
+on es troba la màquina virtualitzada és habilitant el servidor RDP que ofereix virtualbox.
+Això es pot fer en la configuració de la màquina, en la secció Pantalla en la pestanya "Pantalla remota" habilitant
+el checkbox.
+
+Si s'està fent servir adaptador NAT és imprescindible configurar el reenviament de ports de la màquina host a la guest.
+
+Un altre forma d'accedir-hi és mitjançant el protocol SSH.
+
+
+# SEGURETAT USUARIS
+-------------------
+
+Un mètode eficient és fer servir l'eina John the Ripper la qual permet fer servir diccionaris amb les contrasenyes
+més populars de tot el món i s'encarrega de comparar la clau d'un usuari amb totes les existents que en té el 
+diccionari.
+A més, per si no n'hi hagués prou, té l'opció d'intentar trobar-la per força bruta.
+
+Les contrasenyes dels usuaris estan emmagatzemades en forma de resum (hash) concretament SHA512 en el fitxer /etc/shadow
+que s'haurà de copiar en el directori dels diccionaris per no treballar sobre l'original i cometre possibles errors.
+
+Exactament quan es parla de desxifrat no és correcte, aquestes s'encripten de forma que no hi ha manera de fer el procès
+invers, l'única forma que hi ha és passar una funció de resum hash sobre una clau que es creu que pot ser la mateixa i
+comparar si són iguals, però, abans es necessari saber sobre quin tipus de xifrat es tracta.
+
+Amb altres paraules i aprofundint en termes matemàtics, suposant X com a clau i Y com la funció hash es pot calcular Z, 
+però, a partir de Z no es pot calcular X. Ex: 8 mod 2 = 0.
+
+Per exemple, en distribucions Debian existeixen diversos xifrats representats amb un valor identificatiu com es mostra
+en el següent cas:
+
+$1$=MD5      (22 caràcteres)
+$2$=blowfish (28 caràcteres)
+$5$=SHA-256  (43 caràcteres)
+$6$=SHA-512  (86 caràcteres)
+
+Com s'esmentava prèviament, es pot observar en el fitxer /etc/shadow quin tipus de xifrat s'està fent servir:
+
+root:$6$bD.YvIwm$2LXCsSUb32mBvh1w8iLnjWSHHmH2QZCZzVSrKQIr1Oi/jUcBRjM.
+entel:$6$Zc0DouUq$iPTRbZAmEpBF5tXdzNSNw4YwtMgGWbPgMfqV9igRwe2x0iIGQF0RpPUQ3xL6nvoh71KutkNxAuWKVTEo.0hR90:17941:0:99999:7:::
+itiel:$6$MxDb.1zr$EG3X.BlqUmqV.MlzwDNHGuETkvUH6M8ZpzhHSs5uiMlJ1FoW5F.gaMBVz21fIIHuLNzGxmbqbt5ZRovl/R6lv/:17944:0:99999:7:::
+
+En tots els casos es pot veure després del nom de l'usuari dos punts i seguit del tipus de xifrat més la clau xifrada
+en qüestió, i en tots els casos, es tracta de l'identificador $6$ que correspon a SHA512, un xifrat molt fort.
+
+Per instal·lar l'aplicatiu es pot fer des de el mateix terminal:
+	$ sudo apt-get install john
+
+Per fer-ho funcionar;
+	$ john -w=<diccionari> <fitxer shadow copiat>
+
+Per desxifrar-les es fa servir:
+	$ john -format=crypt <fitxer shadow copiat>	
+
+Per mostrar les contrasenyes que ha aconseguit "desxifrar":
+	$ john --show <fitxer shadow copiat>
+
+Exemple:
+
+	root@seax:/media/sf_Shared# john -w=common.usr shadow
+	Press 'q' or Ctrl-C to abort, almost any other key for status
+	Loaded 3 password hashes with 3 different salts (crypt, generic crypt(3) [?/64])
+	Remaining 1 password hash
+	0g 0:00:00:02 100% 0g/s 373.7p/s 373.7c/s 373.7C/s vertigo..zmodem
+	Session completed
+	
+	root@seax:/media/sf_Shared# john -w=default.usr shadow
+	Press 'q' or Ctrl-C to abort, almost any other key for status
+	Loaded 3 password hashes with 3 different salts (crypt, generic crypt(3) [?/64])
+	Remaining 1 password hash
+	0g 0:00:00:01 100% 0g/s 373.1p/s 373.1c/s 373.1C/s mj..marks
+	Session completed
+
+	root@seax:/media/sf_Shared# john -w=minimal.usr shadow
+	Press 'q' or Ctrl-C to abort, almost any other key for status
+	Loaded 3 password hashes with 3 different salts (crypt, generic crypt(3) [?/64])
+	Remaining 1 password hash
+	0g 0:00:00:00 100% 0g/s 320.0p/s 320.0c/s 320.0C/s root..postmaster
+	Session completed
+
+	root@seax:/media/sf_Shared# john -w=john.pwd shadow
+	Press 'q' or Ctrl-C to abort, almost any other key for status
+	Loaded 3 password hashes with 3 different salts (crypt, generic crypt(3) [?/64])
+	Remaining 1 password hash
+	bernard          (itiel)
+	1g 0:00:00:07 100% 0.1270g/s 378.1p/s 378.1c/s 378.1C/s whitney..carolina
+	Use the "--show" option to display all of the cracked passwords reliably
+	Session completed
+	
+	root@seax:/media/sf_Shared# john --show shadow
+	root:toor:17941:0:99999:7:::
+	entel:letne:17941:0:99999:7:::
+	itiel:bernard:17944:0:99999:7:::
+
+	3 password hashes cracked, 0 left

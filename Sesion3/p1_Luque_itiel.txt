@@ -1,0 +1,52 @@
+Pràctica 3 - Sessió 1 - Accés al servidor mitjançant SFTP i SAMBA
+
+Pràctica 3 - Sessió 1 - Accés al servidor mitjançant SFTP i SAMBA
+
+1- Configurar SFTP.
+    - Definir les accions tant pel servidor com pel client.
+    - Cal compartir la carpeta home de l'usuari.
+    - L'usuari no podrà accedir a la resta de disc.
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant captures de xarxa amb un servidor i un client.
+
+2- Configurar samba
+    - Definir les accions tant pel servidor com pel client.
+    - Cal compartir dues carpetes, la home de l'usuari i una anomenada "samba".
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant captures de xarxa amb un servidor i un client.
+
+3- Configurar backups
+    - Definir les accions per realitzar una còpia de seguretat dels fitxers amb rsync.
+    - Definir les accions per realitzar una còpia de seguretat dels fitxers amb borgbackup.
+    - Definir les accions per automatitzar les còpies de seguretat dels fitxers amb cron.
+    - Fer proves i comparar resultats.
+   
+4- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p3_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p3_cognom1_nom.zip.
+
+5- A títol orientatiu, el resultat de la pràctica cal que doni resposta a les següents qüestions:
+[*]  - Com s'instal·la un servior de fitxers amb SFTP?
+[*]  - Com es configura un servior de fitxers amb SFTP?
+[*]  - Com es verifica un servior de fitxers amb SFTP?
+[*]  - Com s'instal·la un client de fitxers amb SFTP?
+[*]  - Com es configura un client de fitxers amb SFTP?
+[*]  - Com es verifica un client de fitxers amb SFTP?
+[*]  - Com es pot compartir un directori amb SFTP?
+[*]  - Com es pot muntar automàticament (fstab) un recurs compartit amb SFTP?
+[*]  - Com es pot muntar manualment un recurs compartit amb SFTP?
+[*]  - Com es pot engabiar un usuari (chroot) amb SFTP ?
+[*]  - Com es securitza un servidor de fitxers SFTP?
+
+[*]  - Com s'instal·la un servior de fitxers amb SMB?
+[*]  - Com es configura un servior de fitxers amb SMB?
+[*]  - Com es verifica un servior de fitxers amb SMB?
+[*]  - Com s'instal·la un client de fitxers amb SMB?
+[*]  - Com es configura un client de fitxers amb SMB?
+[*]  - Com es verifica un client de fitxers amb SMB?
+[*]  - Com es pot comparatir un directori amb SMB?
+[*]  - Com es pot muntar automàticament (fstab) un recurs compartit amb SMB?
+[*]  - Com es pot muntar manualment un recurs compartit amb SMB?
+[*]  - Com es securitza un servidor de fitxers SMB?
+
+[*]  - Com es pot garantir disposar d'una còpia de seguretat de les dades?

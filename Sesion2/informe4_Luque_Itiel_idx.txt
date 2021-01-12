@@ -1,0 +1,2829 @@
+# Pràctica 2 - Avaluació. (Luque Díaz Itiel)
+--------------------------------------------
+
+# INDEX
+-------
+
+(*) Pràctica 2 - Avaluació. (Luque Díaz Itiel).........................................................46
+	(*) REQUERIMENTS...................................................................................56
+	(*) FITXERS MODIFICATS.............................................................................80
+	(*) CANVIS EN LA MÀQUINA..........................................................................139
+	(*) DEDUCCIONS....................................................................................188
+	(*) CONSIDERACIONS................................................................................202
+	(*) PROGRAMARI NECESSARI..........................................................................211
+	(*) FITXER RELACIONATS............................................................................224
+	(*) RESOL·LUCIÓ DISTINCTIVA D'IPS PRIVADES I PÚBLIQUES............................................232
+	(*) DDNS AMB VISTES INTERNA I PÚBLICA.............................................................499
+(*) Pràctica 2 - Sessió 1 - Implementar un servei DNS. (Luque Díaz Itiel).............................675
+	(*) PROGRAMARI NECESSARI..........................................................................679
+	(*) FITXER RELACIONATS............................................................................687
+	(*) ESCENARI......................................................................................698
+	(*) DESCRIPCIÓ....................................................................................708
+	(*) CONFIGURACIÓ SERVIDOR DNS.....................................................................716
+	(*) DELEGACIÓ D'UN SUBDOMINI.....................................................................1074
+	(*) MOSTREIG CACHE LOCAL.........................................................................1228
+	(*) COORDINACIÓ DHCP I DNS.......................................................................1272
+	(*) SCRIPT.......................................................................................1279
+(*) Pràctica 2 - Sessió 2 - Implementar un servei DHCP. (Luque Díaz Itiel)...........................1382
+	(*) PROGRAMARI NECESSARI.........................................................................1386
+	(*) FITXER RELACIONATS...........................................................................1394
+	(*) ESCENARI.....................................................................................1407
+	(*) DESCRIPCIÓ...................................................................................1416
+	(*) CONFIGURACIÓ SERVIDOR DHCP...................................................................1426
+	(*) CONFIGURACIÓ CLIENT..........................................................................1546
+	(*) DNS DINÀMIC..................................................................................1647
+	(*) SCRIPT.......................................................................................1801
+(*) Pràctica 2 - Sessions 3 i 4 -Encaminament i tallafocs. (Luque Díaz Itiel)........................1820
+	(*) PROGRAMARI NECESSARI.........................................................................1824
+	(*) FITXER RELACIONATS...........................................................................1835
+	(*) ESCENARI.....................................................................................1845
+	(*) DESCRIPCIÓ...................................................................................1896
+	(*) CONFIGURACIÓ QUAGGA..........................................................................1904
+	(*) SORTIDA A INTERNET...........................................................................2152
+	(*) CONFIGURACIÓ IPTABLES........................................................................2211
+	(*) COMUNICACIONS XARXES.........................................................................2248
+	(*) SCRIPTS......................................................................................2423
+	(*) REFERÈNCIES BIBLIOGRÀFIQUES..................................................................2799
+
+
+
+Enllaç de descàrrega: https://cloud.catac.upc.edu/owncloud/index.php/s/rOJ4yuKQRy8jJ01
+Clau: toor
+
+*NOTA: Aquest informe ha estat redactat amb amplada de tabulació 4 en editor de textos gedit.
+
+
+# REQUERIMENTS
+--------------
+
+- El nom dels equips i de les seves interfícies seran els indicats a l'enunciat de la sessió 3 i 4 (encaminament i tallafocs). 
+  En el cas del nom caldrà afegir el domini "seax.edu".
+- Els serveis (DNS, DHCP i SSH) estaran ubicats a les màquines indicades a l'enunciat de la sessió 3 i 4.
+- L'adreçament i polítiques de seguretat seran les indicades a l'enunciat de la sessió 3 i 4. 
+- Hi haurà dos dominis "seax.edu" i "server.seax.edu", domini delegat de l'anterior. Hi haurà un únic domini invers per tot l'escenari
+- Els tres dominis tindran com servidors màster i esclau a les màquines anomenades "DNS1" i "DNS2".
+- Al domini "seax.edu" hi han d'aparéixer totes les màquines de l'escenari, routers i monitors inclosos, llevat del monitor de la xarxa de servidors. 
+  A més pels servidors "DNS1" i "DNS2" se'ls crearà uns àlias anomenats "ssh1" i "ssh2", respectívament.
+- Al domini "server.seax.edu" es correpon amb la xarxa de servidors. Els declararan dues màquines: "nas.server.seax.edu" i "monitor.server.seax.edu".
+- Tots els equips de l'escenari han de fer servir com a servidors de DNS "DNS1" i "DNS2". 
+- "DNS1" i "DNS2" han de contestar qualsevol petició recursiva que els arribi de qualsevol màquina que formi part de les xarxes DMZ, servidors, clients i d'administració. 
+- Els servidors DNS contestaran les consultes provinents de les xarxes DMZ, clients, servidors i d'aministració amb adreces privades i les que vinguin d'Internet (xarxa troncal) amb adreces públiques (Nota: cada máquina visible a Internet hauria de tenir dos IPs públiques, que us podeu inventar. Correspondrien, amb les adreces de la interfície que connecta amb la xarxa troncal de cada router)
+- Els equips "Router d'accés I" ha d'estar configurat de manera que sí arriba una petició de DNS o SSH des d'Internet, aquesta es redirgeixi amb la mateixa probabilitat als servidors "DNS1" i "DNS2.
+- Els dos servidors de DHCP faran les reserves pertinents per a les IPs dels servidors i els monitors. A part, han de servir un pool d'IPs lliures per a la resta d'equips que puguin aparéixer.
+- (opcional) Utilitzeu DDNS per actualitzar el servidor de DDNS si apareix algun equip que faci servir aquest pool.
+Cada equip contindrà 3 scripts:
+- Cal Programar un script "dns.sh" amb bash que proporcioni informació sobre un domini en un fitxer de sortida "domini.txt", segons especificacions de la sessió 1 (DNS).
+- Cal programar un script "dhcp.sh" amb bash que proporcioni informació sobre els servidors DHCP existents a la xarxa en un fitxer de sortida "dhcp_servers.txt", segons especificacions de la sessió 2 (DHCP).
+- Cal programar un script "firewall.sh" amb bash que proporcioni informació sobre els intents d'atac en un fitxer de sortida "fw_warning.txt", segons especificacions de les sessions 3 i 4 (encaminament i tallafocs).
+
+
+# FITXERS MODIFICATS
+--------------------
+
+- Router 1		* /etc/networks/interfaces
+				* /etc/hostname
+				* /etc/hosts
+				* /etc/udev/rules.d/70-persistent-net.rules
+				* iptables.sh (script propi)
+				* /etc/quagga/ripd.conf
+				* /etc/quagga/zebra.conf
+				* /sbin/dhclient-script
+
+- Router 2		* /etc/networks/interfaces
+				* /etc/hostname
+				* /etc/hosts
+				* /etc/udev/rules.d/70-persistent-net.rules
+				* iptables.sh (script propi)
+				* /etc/quagga/ripd.conf
+				* /etc/quagga/zebra.conf
+				* /etc/default/isc-dhcp-server
+				* /etc/dhcp/dhcpd.conf
+				* /sbin/dhclient-script
+				* /etc/dhcp/ddns.key
+
+- Router Intern	* /etc/networks/interfaces
+				* /etc/hostname
+				* /etc/hosts
+				* /etc/udev/rules.d/70-persistent-net.rules
+				* iptables.sh (script propi)
+				* /etc/quagga/ripd.conf
+				* /etc/quagga/zebra.conf
+				* /etc/default/isc-dhcp-server
+				* /etc/dhcp/dhcpd.conf
+				* /etc/dhcp/ddns.key
+
+- DNS 1			* /etc/bind/named.conf.local
+				* /etc/bind/named.conf.default			
+				* /etc/bind/directes_interna-seax.edu
+				* /etc/bind/directes_externa-seax.edu
+				* /etc/bind/inverses_interna-seax.edu
+				* /etc/bind/inverses_externa-seax.edu
+				* /etc/network/interfaces
+				* /etc/udev/rules.d/70-persistent-net.rules
+				* /etc/hostname
+				* /etc/hosts
+				* /etc/bind/ddns.key
+
+- DNS 2			* /etc/bind/named.conf.local
+				* /etc/bind/named.conf.default			
+				* /etc/bind/directes_interna-server.seax.edu
+				* /etc/bind/directes_externa-server.seax.edu
+				* /etc/bind/inverses_interna-seax.edu
+				* /etc/bind/inverses_externa-seax.edu
+				* /etc/network/interfaces
+				* /etc/udev/rules.d/70-persistent-net.rules
+				* /etc/hostname
+				* /etc/hosts
+				
+
+# CANVIS EN LA MÀQUINA
+----------------------
+
+* Router 1
+	- S'ha canviat el hostname a "router1" en /etc/hostname i /etc/hosts.
+	- S'ha canviat el nom de les interfícies i s'han configurat de forma estàtica.
+	- S'ha configurat RIPv2 i aquest propaga la ruta per defecte.
+	- S'han establit els DNS1 i DNS2 per defecte, per fer-ho possible s'ha hagut de modificar l'script /sbin/dhclient-script i en la funció
+      make_resolv_conf() fer un return 0 perquè no modifiqués el fitxer /etc/resolv.conf al rebre ip la troncal.
+	- S'ha configurat les iptables per tal de maximitzar la seguretat sent la política per defecte DROP.
+	- Fa balanceig de càrrega round robin, cada connexió redirigeix les peticions d'Internet cap DNS1 i DNS2 així com amb l'SSH.
+	- El firewall fa NAT permeten la sortida cap a Internet als hosts de dintre de la xarxa.
+	- S'ha configurat la resta de restriccions de seguretat l'ho més rigoros possible.
+
+* Router 2
+	- S'ha canviat el hostname a "router2" en /etc/hostname i /etc/hosts.
+	- S'ha canviat el nom de les interfícies i s'han configurat de forma estàtica.
+	- S'ha configurat RIPv2 i aquest propaga la ruta per defecte.
+	- S'han establit els DNS1 i DNS2 per defecte.
+	- S'han establit els DNS1 i DNS2 per defecte, per fer-ho possible s'ha hagut de modificar l'script /sbin/dhclient-script i en la funció
+      make_resolv_conf() fer un return 0 perquè no modifiqués el fitxer /etc/resolv.conf al rebre ip la troncal.
+	- S'ha configurat el dhcp i s'ha fet les reserves pertinents per als monitors.
+	- El firewall fa NAT permeten la sortida cap a Internet als hosts de dintre de la xarxa.
+	- S'ha configurat la resta de restriccions de seguretat l'ho més rigoros possible.
+	- S'ha afegit DDNS.
+
+* Router intern
+	- S'ha canviat el hostname a "routerIntern" en /etc/hostname i /etc/hosts.
+	- S'ha canviat el nom de les interfícies i s'han configurat de forma estàtica.
+	- S'ha configurat RIPv2.
+	- S'han establit els DNS1 i DNS2 per defecte.
+	- S'ha configurat el dhcp i s'ha fet les reserves pertinents per als monitors i s'ha deixat preparada la reserva del nas.
+	- El firewall fa forwarding entre xarxes.
+	- S'ha configurat la resta de restriccions de seguretat l'ho més rigoros possible.
+	- S'ha afegit DDNS.
+
+* DNS 1
+	- S'ha canviat el nom de l'interfície a "eth-dmz".
+	- S'ha configurar bind9 per tal de discriminar connexión provinents d'Internet de les de les xarxes privades.
+	- Configurat com a màster de zona seax.edu delagació de server.seax.edu que també es esclau d'aquesta.
+	- S'ha afegit servei SSH.
+
+* DNS 2
+	- S'ha canviat el nom de l'interfície a "eth-dmz".
+	- S'ha configurar bind9 per tal de discriminar connexión provinents d'Internet de les de les xarxes privades.
+	- Configurat com a màster de zona server.seax.edu i esclau de la zona seax.edu.
+	- S'ha afegit servei SSH.
+
+
+# DEDUCCIONS
+------------
+
+- El balanceig de càrrega és millor que vagi tornant en cada connexió en comptes de fer una probabilitat del 50% a cada connexió,
+  pel simple fet que en varies connexions consecutives pot tocar el mateix i ja no seria un bon balanceig. S'ha fet servir el mòdul
+  statistic i en comptes de fer servir mode random amb probabilitats s'ha fet servir el mode nth amb conteig de packets i reset dels
+  mateixos.
+- S'ha delegat la zona server.seax.edu al servidor DNS2 tot i que podria estar delegada en el mateix servidor DNS1 per mantindre les
+  zones separades i mantingudes independenment.
+- Els clients poden sortir a la 0.0.0.0/0 i accedir a recursos d'Internet, DMZ i servidors interns, pero no poden molestar als administradors,
+  només poden passar per la xarxa en tot cas.
+- Els equips administradors no han de ser el destí de cap xarxa i/o equip, s'ha maximitzat la seguretat. Com a excepció, es permet que els monitors accedeixin als admins.
+
+
+# CONSIDERACIONS
+----------------
+
+- Per executar l'script dhcp.sh són necessaris els programes nmap i dhcpdump especificats en la pràctica 2. S'han instal·lat a les màquines.
+- El DHCP no funciona correctament si no están aixecades les màquines dels DNS per culpa del DDNS.
+- S'ha instal·lat un certificat a totes les màquines molt robust de 8192 bytes per a connectar-se a l'usuari root de forma segura ("itiel_securekey").
+- L'script iptables.sh en el directori /root ha d'estar en aquest directori estrictament per a què s'executi automàticament al encendre la màquina.
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* bind9 (apt-get install bind9)
+* isc-dhcp-server (apt-get install isc-dhcp-server)
+* quagga (apt-get install quagga)
+* tcpdump (apt-get install tcpdump)
+* dig (apt-get install dnsutils)
+* dhcpdump (apt-get install dhcpdump)
+
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/network/interfaces				-->	Configuració de les interfícies.
+* /etc/bind/named.conf.local			-->	Configuració de les zones DNS registrades per l'administrador.
+* /etc/bind/named.conf.default-zones	--> Configuració de les zones per defecte.
+
+
+# RESOL·LUCIÓ DISTINCTIVA D'IPS PRIVADES I PÚBLIQUES
+----------------------------------------------------
+
+Normalment, en qualsevol entorn profesional, es té un servidor dns que està resolent les xarxes internes de la empresa i potser
+està obert a totes les peticions provinents d'Internet oferint servei a tothom. En aquests casos es convenient separar les ips
+privades de les públiques. Per fer-ho possible, s'ha de crear vistes per a diferents entorns i s'han d'afegir les zones per defecte
+que es troben en /etc/bind/named.conf.default en /etc/bind/named.conf.local a més es farà servir una clau única, per autenticar el servidor,
+que es troba en el mateix directori /etc/bind anomenada rndc.key.
+
+La configuració del servidor mestre de la zona seax.edu queda així:
+
+	root@dns1:/etc/bind# cat rndc.key
+	key "rndc-key" {
+		algorithm hmac-md5;
+		secret "QKq41wVvoctQlURrL3R5tg==";
+	};
+	root@dns1:/etc/bind#
+
+	root@dns1:/etc/bind# cat named.conf.local 
+
+	key "externa" {
+		algorithm hmac-md5;
+		secret "QKq41wVvoctQlURrL3R5tg==";
+	};
+
+	acl "xarxa_interna" {!key externa;10.10.1.0/28;10.10.2.0/28;10.10.3.0/28;10.10.4.0/28;10.10.5.0/28;};
+
+	view "interna" {
+		match-clients {!key externa;"xarxa_interna";};
+		recursion yes;
+		allow-recursion {xarxa_interna;};
+		
+		zone "." {
+			type hint;
+			file "/etc/bind/db.root";
+		};
+
+		zone "localhost" {
+			type master;
+			file "/etc/bind/db.local";
+		};
+
+		zone "127.in-addr.arpa" {
+			type master;
+			file "/etc/bind/db.127";
+		};
+
+		zone "0.in-addr.arpa" {
+			type master;
+			file "/etc/bind/db.0";
+		};
+
+		zone "255.in-addr.arpa" {
+			type master;
+			file "/etc/bind/db.255";
+		};
+
+		zone "seax.edu" {
+			type master;
+			file "/etc/bind/directes_interna-seax.edu";
+			allow-transfer {10.10.1.5;};
+			also-notify {10.10.1.5;};
+		};
+
+		zone "10.10.in-addr.arpa" {
+			type master;
+			file "/etc/bind/inverses_interna-seax.edu";
+			allow-transfer {10.10.1.5;};
+			also-notify {10.10.1.5;};
+		};
+
+		zone "server.seax.edu" {
+			type slave;
+			file "/etc/bind/slave/directes_interna-server.seax.edu";
+			masters {10.10.1.5;};	
+		};
+
+	};
+
+	view "externa" {
+		match-clients {key externa;any;};
+		recursion no;
+		server 10.10.1.5 {keys externa;};
+
+		zone "seax.edu" {
+			type master;
+			file "/etc/bind/directes_externa-seax.edu";
+			allow-transfer {10.10.1.5;};
+			also-notify {10.10.1.5;};
+		};
+
+		zone "server.seax.edu" {
+			type slave;
+			file "/etc/bind/slave/directes_externa-server.seax.edu";
+			masters {10.10.1.5;};	
+		};
+
+		zone "1.168.192.in-addr.arpa" {
+			type master;
+			file "/etc/bind/inverses_externa-seax.edu";
+			allow-transfer {10.10.1.5;};
+			also-notify {10.10.1.5;};
+		};
+
+	};
+	root@dns1:/etc/bind#
+	
+	NOTA: S'ha prohibit la recursió per a les peticions externes. Les xarxes permeses estan definides a la ACL.
+
+La zona del servidor esclau és molt semblant, només que s'ha d'indicar que farà d'esclau per a la zona concreta, afegir la clau i les vistes:
+
+	root@dns2:/etc/bind# cat named.conf.local 
+
+	key "externa" {
+		algorithm hmac-md5;
+		secret "QKq41wVvoctQlURrL3R5tg==";
+	};
+
+	acl "xarxa_interna" {!key externa;10.10.1.0/28;10.10.2.0/28;10.10.3.0/28;10.10.4.0/28;10.10.5.0/28;};
+
+	view "interna" {
+		match-clients {!key externa;"xarxa_interna";};
+		recursion yes;
+		allow-recursion {xarxa_interna;};
+
+		zone "." {
+			type hint;
+			file "/etc/bind/db.root";
+		};
+
+		zone "localhost" {
+			type master;
+			file "/etc/bind/db.local";
+		};
+
+		zone "127.in-addr.arpa" {
+			type master;
+			file "/etc/bind/db.127";
+		};
+
+		zone "0.in-addr.arpa" {
+			type master;
+			file "/etc/bind/db.0";
+		};
+
+		zone "255.in-addr.arpa" {
+			type master;
+			file "/etc/bind/db.255";
+		};
+
+		zone "server.seax.edu" {
+			type master;
+			file "/etc/bind/directes_interna-server.seax.edu";	
+			allow-transfer {10.10.1.4;};
+			also-notify {10.10.1.4;};
+		};
+
+		zone "seax.edu" {
+			type slave;
+			file "/etc/bind/slave/directes_interna-seax.edu";
+			masters {10.10.1.4;};	
+		};
+
+		zone "10.10.in-addr.arpa" {
+			type slave;
+			file "/etc/bind/slave/inverses_interna-seax.edu";
+			masters {10.10.1.4;};
+		};
+
+	};
+
+	view "externa" {
+		match-clients {key externa;any;};
+		server 10.10.1.4 {keys externa;};
+		recursion no;
+
+		zone "server.seax.edu" {
+			type master;
+			file "/etc/bind/directes_externa-server.seax.edu";	
+			allow-transfer {10.10.1.4;};
+			also-notify {10.10.1.4;};
+		};
+
+		zone "seax.edu" {
+			type slave;
+			file "/etc/bind/slave/directes_externa-seax.edu";
+			masters {10.10.1.4;};	
+		};
+
+		zone "1.168.192.in-addr.arpa" {
+			type slave;
+			file "/etc/bind/slave/inverses_externa-seax.edu";
+			masters {10.10.1.4;};
+		};
+	};
+	root@dns2:/etc/bind#
+
+
+Per comprovar-ho, es farà servir un equip que està a una de les xarxes definides en la ACL (Router 1):
+
+	root@router1:~# dig prova.seax.edu +short
+	10.10.10.10
+	root@router1:~#
+
+Ara es simularà que la petició bé de l'exterior. La xarxa utilitzada és aïllada, la que s'usa per administrar el servidor
+en l'entorn de proves i no en l'escenari final:
+
+	itiel@X550JX:~$ dig @192.168.56.109 prova.seax.edu +short
+	10.10.1.200
+	itiel@X550JX:~$
+
+
+Comprovació de la recursió:
+
+	root@router1:~# dig cocacola.es +short
+	52.14.144.171
+	root@router1:~#
+
+	itiel@X550JX:~$ dig @192.168.56.109 cocacola.es +short
+	itiel@X550JX:~$ 
+
+
+Comprovació del servidor esclau:
+
+	itiel@X550JX:~$ dig @192.168.56.110 prova.seax.edu +short
+	10.10.1.200
+	itiel@X550JX:~$ 
+
+	root@router1:~# dig @10.10.1.5 prova.seax.edu +short
+	10.10.10.10
+	root@router1:~#
+
+Testeig amb balanceig de càrrega. Es desactualitzaran les zones màster i esclava per poder
+veure que està funcionant. La .25 correspon a l'esclau i la .24 al màster:
+
+	itiel@X550JX:~$ dig @192.168.1.60 test.seax.edu +short
+	10.10.10.25
+	itiel@X550JX:~$ dig @192.168.1.60 test.seax.edu +short
+	10.10.10.24
+	itiel@X550JX:~$ dig @192.168.1.60 test.seax.edu +short
+	10.10.10.25
+	itiel@X550JX:~$ dig @192.168.1.60 test.seax.edu +short
+	10.10.10.24
+	itiel@X550JX:~$ dig @192.168.1.60 test.seax.edu +short
+	10.10.10.25
+	itiel@X550JX:~$ dig @192.168.1.60 test.seax.edu +short
+	10.10.10.24
+	itiel@X550JX:~$
+
+	NOTA: No es una ip privada, s'ha fet servir una diferent de les internes.
+
+
+Comprovació de la zona inversa des de dintre i fora:
+
+	root@router1:~# dig @10.10.1.4 -x 10.10.1.4 +short
+	seax.edu.10.10.in-addr.arpa.
+	ssh1.10.10.in-addr.arpa.
+	dns1.10.10.in-addr.arpa.
+	root@router1:~#
+
+	itiel@X550JX:~$ dig @192.168.1.50 -x 192.168.1.50 +short
+	dns1.1.168.192.in-addr.arpa.
+	ssh1.1.168.192.in-addr.arpa.
+	seax.edu.1.168.192.in-addr.arpa.
+	itiel@X550JX:~$
+
+
+# DDNS AMB VISTES INTERNA I PÚBLICA
+-----------------------------------
+
+S'aprofitarà la clau que porta bind per actualizar les ips que assigna el dhcp de forma dinàmica.
+És la mateixa que es fa servir per transmetre les views entre servidors dns.
+S'ha de crear la clau ddns com s'especifica a l'informe.
+
+S'ha d'afegir les següents linies al fitxer de configuració del dhcp /etc/dhcp/dhcpd.conf:
+
+	root@routerIntern:/etc/dhcp# cat dhcpd.conf 
+	.
+	.
+	.
+	ddns-updates on;
+	ddns-update-style interim;
+	ignore client-updates;
+	update-static-leases on;
+
+	include "/etc/dhcp/ddns.key";
+	.
+	.
+	.
+	root@routerIntern:/etc/dhcp#
+
+S'ha d'afegir les zones dintre de les subxarxes per actualitzar l'ip en la zona que es destija, per
+exemple, els servidors hauran d'actualitzar la zona server.seax.edu mentre que les altres xarxes
+seax.edu:
+
+	root@routerIntern:/etc/dhcp# cat dhcpd.conf 
+	.
+	.
+	.
+	# Xarxa servidors
+	subnet 10.10.4.0 netmask 255.255.255.240 {
+		    range 10.10.4.2 10.10.4.3;
+		    range 10.10.4.5 10.10.4.10;
+		    range 10.10.4.12 10.10.4.14;
+		    option subnet-mask 255.255.255.240;
+		    option routers 10.10.4.1;
+		    get-lease-hostnames true;
+		    use-host-decl-names true;
+		    default-lease-time 600;
+		    max-lease-time 7200;
+		
+	#	host nas {
+	#		hardware ethernet 08:00:27:XX:XX:XX;
+	#		fixed-address 10.10.4.4;
+	#	}
+		
+		host monitor_servidors {
+			hardware ethernet 08:00:27:10:00:11;
+			fixed-address 10.10.4.11;
+		}
+
+		ddns-domainname "server.seax.edu";
+
+
+		zone server.seax.edu {
+			primary 10.10.1.5;
+			key DDNS_UPDATE;
+		}
+
+		zone 10.10.in-addr.arpa. {
+			primary 10.10.1.5;
+			key DDNS_UPDATE;
+		}
+
+	}
+	.
+	.
+	.
+	root@routerIntern:/etc/dhcp#
+
+
+	root@routerIntern:/etc/dhcp# cat dhcpd.conf 
+	.
+	.
+	.
+	# Xarxa clients
+	subnet 10.10.2.0 netmask 255.255.255.240 {
+		    range 10.10.2.3 10.10.2.10;
+		    range 10.10.2.12 10.10.2.14;
+		    option subnet-mask 255.255.255.240;
+		    option routers 10.10.2.2;
+		    get-lease-hostnames true;
+		    use-host-decl-names true;
+		    default-lease-time 600;
+		    max-lease-time 7200;
+
+		host monitor_clients {
+			hardware ethernet 08:00:27:10:00:11;
+			fixed-address 10.10.2.11;
+		}
+
+		ddns-domainname "seax.edu";
+
+		zone seax.edu {
+			primary 10.10.1.4;
+			key DDNS_UPDATE;
+		}
+
+		zone 10.10.in-addr.arpa. {
+			primary 10.10.1.4;
+			key DDNS_UPDATE;
+		}
+	}
+	.
+	.
+	.
+	root@routerIntern:/etc/dhcp#
+
+En el dns (bind9) en els fitxers de configuració, en aquest cas named.conf.local s'ha d'afegir a les zones
+mestres de cada servidor dns:
+
+
+	root@dns1:/etc/bind# cat named.conf.local
+	.
+	.
+	.
+	zone "seax.edu" {
+		type master;
+		file "/etc/bind/directes_interna-seax.edu";
+		allow-transfer {10.10.1.5;};
+		also-notify {10.10.1.5;};
+		allow-update {key DDNS_UPDATE;};
+	};
+	.
+	.
+	.
+	root@dns1:/etc/bind#
+
+	NOTA: És molt important canviar usuari i grup a tot de la carpeta /etc/bind per bind.
+
+Comprovacions des de diferentes xarxes amb un client qualsevol:
+
+	- Xarxa DMZ:
+
+		root@seax:~# dig seax.seax.edu +short
+		10.10.1.9
+		root@seax:~# 
+
+		root@seax:~# dig -x 10.10.1.9 +short
+		seax.seax.edu.
+		root@seax:~# 
+		
+	- Xarxa clients:
+
+		root@seax:~# dig seax.seax.edu +short
+		10.10.2.3
+		root@seax:~# 
+
+		root@seax:~# dig -x 10.10.2.3 +short
+		seax.seax.edu.
+		root@seax:~#
+
+	- Xarxa administradors:
+
+		root@seax:~# dig seax.seax.edu +short
+		10.10.3.3
+		root@seax:~# 
+
+		root@seax:~# dig -x 10.10.3.3 +short
+		seax.seax.edu.
+		root@seax:~# 
+
+	- Xarxa servidors:
+
+		root@seax:~# dig seax.server.seax.edu +short
+		10.10.4.2
+		root@seax:~# 
+
+		root@seax:~# dig -x 10.10.4.2 +short
+		seax.server.seax.edu.
+		root@seax:~# 
+
+
+# Pràctica 2 - Sessió 1 - Implementar un servei DNS. (Luque Díaz Itiel)
+-----------------------------------------------------------------------
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* bind9 (apt-get install bind9)
+
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/bind/named.conf.local		-->	Configuració general de les zones.
+* /etc/bind/db.empty				--> Plantilla de configuració d'una zona.
+* /etc/bind/name.conf.options		--> Configuracions del dns bind9.
+* /etc/bind/directes-seax.edu		--> Base de dades amb les resolucions directes (nom->ip).
+* /etc/bind/inverses-seax.edu		--> Base de dades amb les resolucions inverses (ip->nom).
+* /var/cache/bind/named_dump.db		-->	Cache local del servidor DNS
+
+
+# ESCENARI
+----------
+* Domini principal		--> seax.edu
+* Subdomini				--> classe.seax.edu
+* DNS màster 			--> 192.168.56.104/24
+* DNS slave				--> 192.168.56.102/24
+* DNS delegat màster 	--> 192.168.56.102/24
+* DNS delegat slave 	--> 192.168.56.104/24
+
+
+# DESCRIPCIÓ
+------------
+
+Com a persones humanes tenim més facilitat de recordar noms que no pas una ristra de números, per això, es va inventar els servidors DNS 
+que ajuden a permetre que a partir d'un nom saber quina direcció ip té assignada un equip/servidor o una xarxa. També ho permet en
+sentit contrari, és a dir, a partir d'una ip saber quin nom té associat (ha d'estar configurat).
+
+
+# CONFIGURACIÓ SERVIDOR DNS
+---------------------------
+
+El servidor per defecte no fa forwarding, és a dir, no té cap altre servidor delegat a qui dirigir les peticions que no coneix.
+Normalment es solen possar els dns de l'ISP.
+Per tant, pregunta al servidors root en quin Top Domain Level trobar-la i comença a fer peticions als encarregats de zona de manera
+iterativa.
+També per defecte ja fa de memòria cau. 
+
+Les zones inverses i directes s'han d'establir en el fitxer /etc/bind/named.conf.local i es recomanable possar-les fora d'aquest, de manera
+que pugui ser mantenible en el temps.
+La següent configuració és per a la màquina que farà de màster i que vol transmetre les zones a l'esclau amb les directives pertinents:
+
+	root@monitor:/etc/bind# cat named.conf.local 
+	//
+	// Do any local configuration here
+	//
+
+	// Consider adding the 1918 zones here, if they are not used in your
+	// organization
+	//include "/etc/bind/zones.rfc1918";
+
+	zone "seax.edu" {
+		type master;
+		file "/etc/bind/directes-seax.edu";
+		allow-transfer {192.168.56.102;};
+		also-notify {192.168.56.102;};
+	};
+
+	zone "56.168.192.in-addr.arpa" {
+		type master;
+		file "/etc/bind/inverses-seax.edu";
+		allow-transfer {192.168.56.102;};
+		also-notify {192.168.56.102;};
+	};
+	root@monitor:/etc/bind#
+
+Es de bona pràctica indicar que el subdomini dns apunta a la direcció del màster.
+Mostreig de la configuració de cada zona:
+
+	root@monitor:/etc/bind# cat directes-seax.edu 
+	; BIND reverse data file for empty rfc1918 zone
+	;
+	; DO NOT EDIT THIS FILE - it is used for multiple zones.
+	; Instead, copy it, edit named.conf, and use that copy.
+	;
+	$TTL	86400
+	@	IN	SOA	seax.edu. root.seax.edu. (
+					  1		; Serial
+				 604800		; Refresh
+				  86400		; Retry
+				2419200		; Expire
+				  86400 )	; Negative Cache TTL
+	;
+	@	IN	NS	dns.seax.edu.
+	@	IN	NS	dns2.seax.edu.
+
+	seax.edu.	IN	A	192.168.56.104
+	dns			IN	A	192.168.56.104
+	dns2		IN	A	192.168.56.102
+	itiel		IN	A	192.168.56.200
+	root@monitor:/etc/bind#
+
+	root@monitor:/etc/bind# cat inverses-seax.edu 
+	; BIND reverse data file for empty rfc1918 zone
+	;
+	; DO NOT EDIT THIS FILE - it is used for multiple zones.
+	; Instead, copy it, edit named.conf, and use that copy.
+	;
+	$TTL	86400
+	@	IN	SOA	seax.edu. root.seax.edu. (
+					  1		; Serial
+				 604800		; Refresh
+				  86400		; Retry
+				2419200		; Expire
+				  86400 )	; Negative Cache TTL
+	;
+	@	IN	NS	dns.seax.edu.
+
+	104	IN	PTR	seax.edu.
+	104	IN	PTR	dns
+	200	IN	PTR	itiel
+
+	root@monitor:/etc/bind#
+
+Per tal de comprovar la sintaxis dels fitxers, existeixen dues comandes potents que ajuden a averiguar si tot està correcte:
+
+	root@monitor:/etc/bind# named-checkconf named.conf.local 
+	root@monitor:/etc/bind#
+
+	root@monitor:/etc/bind# named-checkzone seax.edu directes-seax.edu 
+	zone seax.edu/IN: loaded serial 1
+	OK
+	root@monitor:/etc/bind#
+
+	NOTA: Només serveix per a les zones directes.
+
+En quant a la part del servidor esclau, es configura del mateix mode, però, sense crear les bases de dades, ja que la gràcia és obternir-les
+del màster.
+S'ha afegit el directori "slave" amb propietari i grup bind per emmagatzemar les zones perquè dona problemes de permissos al escriure la còpia
+de la base de dades que s'ha rebut.
+Es necessari indicar l'ip del màster per poder obtenir-les:
+
+	root@monitor:/etc/bind# cat named.conf.local 
+	//
+	// Do any local configuration here
+	//
+
+	// Consider adding the 1918 zones here, if they are not used in your
+	// organization
+	//include "/etc/bind/zones.rfc1918";
+
+	zone "seax.edu" {
+		type slave;
+		file "/etc/bind/slave/directes-seax.edu";
+		masters {192.168.56.104;};	
+	};
+
+	zone "56.168.192.in-addr.arpa" {
+		type slave;
+		file "/etc/bind/slave/inverses-seax.edu";
+		masters {192.168.56.104;};
+	};
+	root@monitor:/etc/bind#
+
+	NOTA: A les inverses tant en el màster com l'esclau se li ha indicat nomès tres octets de les adreces ip perquè la xarxa serà un /24, per tant,
+		  indirectament s'està indicant en la zona.
+
+En la següent captura es mostra el resultat de la resolució d'un nom contra el màster, en les següents, una comparativa entre màster i esclau.
+El resultat és una diferencia en quant a instant de la petició i l'identificador dels headers, la resta és identic:
+
+	itiel@X550JX:~$ dig @192.168.56.104 itiel.seax.edu
+
+	; <<>> DiG 9.11.3-1ubuntu1.5-Ubuntu <<>> @192.168.56.104 itiel.seax.edu
+	; (1 server found)
+	;; global options: +cmd
+	;; Got answer:
+	;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 30423
+	;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 1, ADDITIONAL: 2
+
+	;; OPT PSEUDOSECTION:
+	; EDNS: version: 0, flags:; udp: 4096
+	;; QUESTION SECTION:
+	;itiel.seax.edu.			IN	A
+
+	;; ANSWER SECTION:
+	itiel.seax.edu.		86400	IN	A	192.168.56.200
+
+	;; AUTHORITY SECTION:
+	seax.edu.		86400	IN	NS	dns2.seax.edu.
+	seax.edu.		86400	IN	NS	dns.seax.edu.
+
+	;; ADDITIONAL SECTION:
+	dns.seax.edu.		86400	IN	A	192.168.56.104
+	dns2.seax.edu.		86400	IN	A	192.168.56.102
+
+	;; Query time: 0 msec
+	;; SERVER: 192.168.56.104#53(192.168.56.104)
+	;; WHEN: Thu Mar 14 14:27:19 CET 2019
+	;; MSG SIZE  rcvd: 93
+
+	itiel@X550JX:~$ dig @192.168.56.104 itiel.seax.edu > master.txt
+	itiel@X550JX:~$ dig @192.168.56.102 itiel.seax.edu > esclau.txt
+	itiel@X550JX:~$ diff master.txt esclau.txt 
+	2c2
+	< ; <<>> DiG 9.11.3-1ubuntu1.5-Ubuntu <<>> @192.168.56.104 itiel.seax.edu
+	---
+	> ; <<>> DiG 9.11.3-1ubuntu1.5-Ubuntu <<>> @192.168.56.102 itiel.seax.edu
+	6c6
+	< ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 14650
+	---
+	> ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 53087
+	24,25c24,25
+	< ;; SERVER: 192.168.56.104#53(192.168.56.104)
+	< ;; WHEN: Thu Mar 14 14:28:57 CET 2019
+	---
+	> ;; SERVER: 192.168.56.102#53(192.168.56.102)
+	> ;; WHEN: Thu Mar 14 14:28:50 CET 2019
+	itiel@X550JX:~$
+
+Prova de la configuració de les inverses:
+
+	itiel@X550JX:~$ dig @192.168.56.104 -x 192.168.56.200 +short
+	itiel.56.168.192.in-addr.arpa.
+	itiel@X550JX:~$ dig @192.168.56.104 -x 192.168.56.104 +short
+	seax.edu.
+	dns.56.168.192.in-addr.arpa.
+	itiel@X550JX:~$
+
+Cada cop que l'administrador afegeix/modifica/elimina un registre, ha d'incrementar el serial per notificar als
+servidors esclaus. Per fer efectuar la notificació és necessari recarregar els fitxers de configuració:
+
+	root@monitor:~# service bind9 reload
+	root@monitor:~#
+
+Per evitar problemàtiques és molt important seguir les RFC que diuen que el serial hauría de formar-se per la
+combinació de l'any, mes, dia més un número incremental (yyyymmddss).
+
+
+Per comprovar que el funcionament màster-esclau és el correcte, es pot fer servir l'eina "tcpdump".
+En el següent escenari s'ha canviar l'adreça ip del nom "itiel.seax.edu" de 192.168.56.205 a .210, s'ha incrementat el
+serial i s'ha tornat a carregar la configuració en el servei.
+La captura confirma que s'està produïnt l'intercanvi de la zona afectada del màster cap al esclau, és a dir, l'està
+notificant del canvi:
+
+	root@monitor:~# tcpdump -i enp0s9 udp port 53
+	tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+	listening on enp0s9, link-type EN10MB (Ethernet), capture size 262144 bytes
+
+	23:31:32.415588 IP X550JX.59182 > 192.168.56.104.domain: 50011+ [1au] A? seax.edu. (49)
+	23:31:32.415791 IP 192.168.56.104.domain > X550JX.59182: 50011* 1/1/2 A 192.168.56.104 (87)
+	23:32:19.241313 IP X550JX.48162 > 192.168.56.104.domain: 40236+ [1au] A? itiel.seax.edu. (55)
+	23:32:19.241572 IP 192.168.56.104.domain > X550JX.48162: 40236* 1/1/2 A 192.168.56.205 (93)
+	23:33:07.248432 IP 192.168.56.104.43411 > 192.168.56.102.domain: 45396 notify [b2&3=0x2400] [1a] SOA? seax.edu. (67)
+	23:33:07.249029 IP 192.168.56.102.domain > 192.168.56.104.43411: 45396 notify* 0/0/0 (26)
+	23:33:07.249198 IP 192.168.56.102.49512 > 192.168.56.104.domain: 35812 [1au] SOA? seax.edu. (37)
+	23:33:07.249281 IP 192.168.56.104.domain > 192.168.56.102.49512: 35812* 1/1/2 SOA (112)
+	23:33:07.252052 IP 192.168.56.102.42067 > 192.168.56.104.domain: 10818 notify [b2&3=0x2400] [1a] SOA? seax.edu. (67)
+	23:33:07.252435 IP 192.168.56.104.domain > 192.168.56.102.42067: 10818 notify* 0/0/0 (26)
+	23:33:39.784901 IP X550JX.42735 > 192.168.56.104.domain: 19348+ [1au] A? itiel.seax.edu. (55)
+	23:33:39.785206 IP 192.168.56.104.domain > X550JX.42735: 19348* 1/1/2 A 192.168.56.210 (93)
+	23:33:47.829056 IP X550JX.35296 > 192.168.56.104.domain: 8370+ [1au] A? itiel.seax.edu. (55)
+	23:33:47.829304 IP 192.168.56.104.domain > X550JX.35296: 8370* 1/1/2 A 192.168.56.210 (93)
+
+	^C
+	14 packets captured
+	14 packets received by filter
+	0 packets dropped by kernel
+	root@monitor:~#
+
+Per comprovar si s'han efectuat bé els canvis, es disposa a fer la resolució contra el màster i posteriorment contra l'esclau.
+S'observa que el canvi s'ha fet correctament:
+
+	itiel@X550JX:~$ dig @192.168.56.104 itiel.seax.edu +short
+	192.168.56.210
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ dig @192.168.56.102 itiel.seax.edu +short
+	192.168.56.210
+	itiel@X550JX:~$
+
+En el següent escenari es disposa a comprovar si realment està funcionant correctament la cache del servidor DNS. S'ha dividit 
+en tres peticions, que està reflexat en la captura amb espais.
+En primer lloc, es demana la resolució d'un nom de la pròpia zona que manté el servidor.
+En segon lloc, es vol resoldre el domini "cocacola.es". Com es pot veure, ha estat necessari fer peticions als servidors arrels
+per tractar de trobar qui és l'encarregat de mantindre-ho i finalment arribar al màster de zona.
+Per últim, es comprova que s'hagi emmagatzemat localment i es disposa a tornar a fer la consulta. Com mostra el tcpdump, la
+resolució es directa i no és necessari sortir a fora:
+
+	root@monitor:~# tcpdump -i any udp port 53
+	tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+	listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+	17:31:53.000552 IP X550JX.47754 > 192.168.56.104.domain: 33529+ [1au] A? itiel.seax.edu. (55)
+	17:31:53.000743 IP 192.168.56.104.domain > X550JX.47754: 33529* 1/1/2 A 192.168.56.210 (93)
+	17:31:53.001209 IP 10.0.2.15.56567 > 10.0.2.3.domain: 3491+ PTR? 104.56.168.192.in-addr.arpa. (45)
+	17:31:53.101026 IP 10.0.2.3.domain > 10.0.2.15.56567: 3491 NXDomain 0/0/0 (45)
+	17:31:53.101424 IP 10.0.2.15.44669 > 10.0.2.3.domain: 42212+ PTR? 1.56.168.192.in-addr.arpa. (43)
+	17:31:53.120736 IP 10.0.2.3.domain > 10.0.2.15.44669: 42212 2/0/0 PTR X550JX., PTR X550JX.local. (89)
+	17:31:53.121895 IP 10.0.2.15.49308 > 10.0.2.3.domain: 27639+ PTR? 3.2.0.10.in-addr.arpa. (39)
+	17:31:53.179378 IP 10.0.2.3.domain > 10.0.2.15.49308: 27639 NXDomain 0/0/0 (39)
+	17:31:53.179731 IP 10.0.2.15.33206 > 10.0.2.3.domain: 32488+ PTR? 15.2.0.10.in-addr.arpa. (40)
+
+	17:32:00.975340 IP X550JX.57374 > 192.168.56.104.domain: 56928+ [1au] A? cocacola.es. (52)
+	17:32:00.975864 IP 10.0.2.15.41602 > l.root-servers.net.domain: 52688 [1au] A? cocacola.es. (40)
+	17:32:00.975984 IP 10.0.2.15.48720 > l.root-servers.net.domain: 41365 [1au] NS? . (28)
+	17:32:00.976075 IP 10.0.2.15.38167 > l.root-servers.net.domain: 62147% [1au] AAAA? E.ROOT-SERVERS.NET. (47)
+	17:32:00.976157 IP 10.0.2.15.39400 > l.root-servers.net.domain: 16959% [1au] AAAA? G.ROOT-SERVERS.NET. (47)
+	17:32:00.976495 IP 10.0.2.15.43848 > 10.0.2.3.domain: 45135+ PTR? 42.83.7.199.in-addr.arpa. (42)
+	17:32:01.025456 IP l.root-servers.net.domain > 10.0.2.15.41602: 52688-| 0/9/1 (281)
+	17:32:01.026677 IP l.root-servers.net.domain > 10.0.2.15.38167: 62147*- 1/0/1 AAAA 2001:500:a8::e (75)
+	17:32:01.186801 IP 10.0.2.15.33231 > c.root-servers.net.domain: 25216% [1au] A? ns4.ko.com. (39)
+	17:32:01.187157 IP 10.0.2.15.60611 > c.root-servers.net.domain: 26326% [1au] AAAA? ns4.ko.com. (39)
+	17:32:01.187444 IP 10.0.2.15.48304 > c.root-servers.net.domain: 3683 [1au] NS? . (28)
+	17:32:01.187876 IP 10.0.2.15.33055 > c.root-servers.net.domain: 11305% [1au] A? ns3.ko.com. (39)
+	17:32:01.188153 IP 10.0.2.15.35069 > c.root-servers.net.domain: 28099% [1au] AAAA? ns3.ko.com. (39)
+	17:32:01.188486 IP 10.0.2.15.42618 > c.root-servers.net.domain: 8668% [1au] A? ns2.ko.com. (39)
+	17:32:01.188817 IP 10.0.2.15.44492 > c.root-servers.net.domain: 2935% [1au] AAAA? ns2.ko.com. (39)
+	17:32:01.378243 IP 10.0.2.15.46308 > ns3.ko.com.domain: 11451% [1au] A? ns4.ko.com. (39)
+	17:32:01.378611 IP 10.0.2.15.51299 > 10.0.2.3.domain: 24256+ PTR? 154.84.162.161.in-addr.arpa. (45)
+	17:32:01.381794 IP 10.0.2.15.45927 > ns3.ko.com.domain: 57968% [1au] A? ns2.ko.com. (39)
+	17:32:01.384126 IP 10.0.2.15.38562 > ns3.ko.com.domain: 34594% [1au] AAAA? ns2.ko.com. (39)
+	17:32:01.384898 IP 10.0.2.15.43323 > ns3.ko.com.domain: 47678% [1au] AAAA? ns3.ko.com. (39)
+	17:32:01.393108 IP 10.0.2.15.52345 > ns3.ko.com.domain: 37639% [1au] AAAA? ns4.ko.com. (39)
+	17:32:01.393466 IP 10.0.2.15.44300 > ns3.ko.com.domain: 61136% [1au] A? ns3.ko.com. (39)
+	17:32:01.643794 IP ns4.ko.com.domain > 10.0.2.15.40617: 47684*- 1/0/1 A 52.14.144.171 (56)
+	17:32:01.644154 IP 10.0.2.15.59054 > 10.0.2.3.domain: 38675+ PTR? 151.92.162.161.in-addr.arpa. (45)
+	17:32:01.645949 IP 10.0.2.15.58767 > i.root-servers.net.domain: 10509 [1au] DS? es. (31)
+	17:32:01.698907 IP i.root-servers.net.domain > 10.0.2.15.58767: 10509*- 3/0/1 DS, DS, RRSIG (402)
+	17:32:01.699950 IP 10.0.2.15.56905 > g.nic.es.domain: 16174 [1au] DS? cocacola.es. (40)
+	17:32:01.705794 IP g.nic.es.domain > 10.0.2.15.56905: 16174*-| 0/0/1 (40)
+	17:32:01.717950 IP 10.0.2.15.35944 > fnic.rediris.es.domain: 33694 [1au] DNSKEY? es. (31)
+	17:32:01.793932 IP 10.0.2.15.44414 > 10.0.2.3.domain: 17069+ PTR? 17.148.36.192.in-addr.arpa. (44)
+	17:32:01.948494 IP 10.0.2.3.domain > 10.0.2.15.44414: 17069 1/0/0 PTR i.root-servers.net. (76)
+	17:32:01.948912 IP 10.0.2.15.33244 > 10.0.2.3.domain: 54600+ PTR? 1.217.61.204.in-addr.arpa. (43)
+	17:32:01.954600 IP 10.0.2.3.domain > 10.0.2.15.33244: 54600 1/0/0 PTR g.nic.es. (65)
+	17:32:01.955106 IP 10.0.2.15.43201 > 10.0.2.3.domain: 18564+ PTR? 7.1.206.130.in-addr.arpa. (42)
+	17:32:01.961267 IP 10.0.2.3.domain > 10.0.2.15.43201: 18564 1/0/0 PTR fnic.rediris.es. (71)
+	17:32:05.976286 IP X550JX.57374 > 192.168.56.104.domain: 56928+ [1au] A? cocacola.es. (52)
+	17:32:08.150072 IP 10.0.2.15.59330 > ns1.nic.es.domain: 15061 [1au] DNSKEY? es. (31)
+	17:32:08.150564 IP 10.0.2.15.44330 > 10.0.2.3.domain: 42886+ PTR? 1.254.69.194.in-addr.arpa. (43)
+	17:32:08.233597 IP ns1.nic.es.domain > 10.0.2.15.59330: 15061*-| 0/0/1 (31)
+	17:32:08.237490 IP 10.0.2.3.domain > 10.0.2.15.44330: 42886 1/0/0 PTR ns1.nic.es. (67)
+	17:32:08.269864 IP 192.168.56.104.domain > X550JX.57374: 56928 1/3/4 A 52.14.144.171 (164)
+
+	17:32:15.818476 IP X550JX.54139 > 192.168.56.104.domain: 17855+ [1au] A? cocacola.es. (52)
+	17:32:15.818737 IP 192.168.56.104.domain > X550JX.54139: 17855 1/3/4 A 52.14.144.171 (164)
+	^C
+	52 packets captured
+	89 packets received by filter
+	37 packets dropped by kernel
+	root@monitor:~#
+
+Per controlar les peticions recursives en el servidor DNS es fa configurant-ho en els fitxers de configuració,
+concretament en el "named.conf.options", afegint la directiva "recursion" a no si no es vol acceptar cap ni una.
+La política per defect és fer-les.
+D'altre banda, es pot delimitar només a un conjunt que es qui podrà fer consultes recursives.
+
+Exemple, on <xarxa> pot ser una sola xarxa, un conjunt d'ips, el paràmetre any o el paràmetre none:
+
+	allow-recursion { <xarxa>; };
+
+Fitxer de configuració denegant tot tipus de peticions recursives:
+
+	root@monitor:/etc/bind# cat named.conf.options 
+	options {
+		.
+		.
+		.
+		recursion no;
+	};
+
+	root@monitor:/etc/bind#
+
+Exemple de petició:
+
+	itiel@X550JX:~$ dig @192.168.56.104 google.es
+
+	; <<>> DiG 9.11.3-1ubuntu1.5-Ubuntu <<>> @192.168.56.104 google.es
+	; (1 server found)
+	;; global options: +cmd
+	;; Got answer:
+	;; ->>HEADER<<- opcode: QUERY, status: REFUSED, id: 55509
+	;; flags: qr rd; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
+	;; WARNING: recursion requested but not available
+
+	;; OPT PSEUDOSECTION:
+	; EDNS: version: 0, flags:; udp: 4096
+	;; QUESTION SECTION:
+	;google.es.			IN	A
+
+	;; Query time: 0 msec
+	;; SERVER: 192.168.56.104#53(192.168.56.104)
+	;; WHEN: Mon Mar 18 18:05:57 CET 2019
+	;; MSG SIZE  rcvd: 38
+
+	itiel@X550JX:~$
+
+
+# DELEGACIÓ D'UN SUBDOMINI
+--------------------------
+
+La configuració s'ha de realitzar en el mateix fitxer ("named.conf.local") afegint la nova zona respectiva,
+en el cas del servidor mestre per a la zona "classe.seax.edu" s'afegira en el fitxer i s'establirà com a servidor
+màster. A més notificarà al servidor màster per a la zona "seax.edu" que farà d'esclau per al subdomini:
+
+	root@monitor:/etc/bind# cat named.conf.local
+
+	.
+	.
+	.
+
+	zone "classe.seax.edu" {
+		type master;
+		file "/etc/bind/directes-classe.seax.edu";	
+		allow-transfer {192.168.56.104;};
+		also-notify {192.168.56.104;};
+	};
+
+	root@monitor:/etc/bind#
+
+	NOTA: S'ha aprofitat per fer d'esclau al servidor 192.168.56.104. No és prescindible.
+
+Configuració de la base de dades per a la zona "classe.seax.edu" subdomini de "seax.edu":
+
+	root@monitor:/etc/bind# cat directes-classe.seax.edu 
+	; BIND reverse data file for empty rfc1918 zone
+	;
+	; DO NOT EDIT THIS FILE - it is used for multiple zones.
+	; Instead, copy it, edit named.conf, and use that copy.
+	;
+	$TTL	86400
+	@	IN	SOA	classe.seax.edu. root.classe.seax.edu. (
+				      1		; Serial
+				 604800		; Refresh
+				  86400		; Retry
+				2419200		; Expire
+				  86400 )	; Negative Cache TTL
+	;
+	@	IN	NS	dns.classe.seax.edu.
+	@	IN	NS	dns2.classe.seax.edu.
+
+	classe.seax.edu.	IN	A	192.168.56.102
+	dns					IN	A	192.168.56.102
+	dns2				IN	A	192.168.56.104
+	itiel				IN	A	192.168.56.29
+	root@monitor:/etc/bind#
+
+
+Configuració de la zona "classe.seax.edu" en el servidor esclau:
+
+	root@monitor:/etc/bind# cat named.conf.local
+
+	.
+	.
+	.
+
+	zone "classe.seax.edu" {
+		type slave;
+		file "/etc/bind/slave/directes-classe.seax.edu";
+		masters {192.168.56.102;};
+	};
+
+	root@monitor:/etc/bind#
+
+Configuració de la zona directa del servidor que serà esclau de la zona "classe.seax.edu" 
+per a redirigir les peticions cap al servidor mestre de la zona previament esmentada:
+
+	root@monitor:/etc/bind# cat directes-seax.edu 
+	; BIND reverse data file for empty rfc1918 zone
+	;
+	; DO NOT EDIT THIS FILE - it is used for multiple zones.
+	; Instead, copy it, edit named.conf, and use that copy.
+	;
+	$TTL	86400
+	@	IN	SOA	seax.edu. root.seax.edu. (
+				2019031500	; Serial YYYYMMDDnn
+				 604800		; Refresh
+				  86400		; Retry
+				2419200		; Expire
+				  86400 )	; Negative Cache TTL
+	;
+	@	IN	NS	dns.seax.edu.
+	@	IN	NS	dns2.seax.edu.
+
+	seax.edu.	IN	A	192.168.56.104
+	dns			IN	A	192.168.56.104
+	dns2		IN	A	192.168.56.102
+	itiel		IN	A	192.168.56.205
+	classe		IN	A	192.168.56.102
+
+	$ORIGIN classe.seax.edu.
+	$TTL	86400
+	@	IN	NS	dns.classe.seax.edu.
+
+	dns		IN	A	192.168.56.102
+	dns2	IN	A	192.168.56.104
+	root@monitor:/etc/bind#
+
+Configuració de la zona directa "classe.seax.edu":
+
+	root@monitor:/etc/bind# cat directes-classe.seax.edu 
+	; BIND reverse data file for empty rfc1918 zone
+	;
+	; DO NOT EDIT THIS FILE - it is used for multiple zones.
+	; Instead, copy it, edit named.conf, and use that copy.
+	;
+	$TTL	86400
+	@	IN	SOA	classe.seax.edu. root.classe.seax.edu. (
+					  1		; Serial
+				 604800		; Refresh
+				  86400		; Retry
+				2419200		; Expire
+				  86400 )	; Negative Cache TTL
+	;
+	@	IN	NS	dns.classe.seax.edu.
+	@	IN	NS	dns2.classe.seax.edu.
+
+	classe.seax.edu.	IN	A	192.168.56.102
+	dns					IN	A	192.168.56.102
+	dns2				IN	A	192.168.56.104
+	itiel				IN	A	192.168.56.29
+	root@monitor:/etc/bind#
+
+Resolució del nom "itiel.classe.seax.edu" contra el servidor mestre 192.168.56.104 encarregat del domini "seax.edu":
+
+	itiel@X550JX:~$ dig @192.168.56.104 itiel.classe.seax.edu +nocmd +nocomments +nostats
+
+	; <<>> DiG 9.11.3-1ubuntu1.5-Ubuntu <<>> @192.168.56.104 itiel.classe.seax.edu +nocmd +nocomments +nostats
+	; (1 server found)
+	;; global options: +cmd
+	;itiel.classe.seax.edu.			IN	A
+	itiel.classe.seax.edu.	86400	IN	A	192.168.56.29
+	classe.seax.edu.		86400	IN	NS	dns.classe.seax.edu.
+	dns.classe.seax.edu.	86400	IN	A	192.168.56.102
+	itiel@X550JX:~$
+
+	Es mostra qui és l'encarregat del domini ("dns.classe.seax.edu" amb ip 192.168.56.102) per al subdomini demanat.
+
+Petició del SOA del subdomini delegat:
+
+	itiel@X550JX:~$ dig @192.168.56.104 SOA classe.seax.edu +nocmd +nocomments +nostats
+
+	; <<>> DiG 9.11.3-1ubuntu1.5-Ubuntu <<>> @192.168.56.104 SOA classe.seax.edu +nocmd +nocomments +nostats
+	; (1 server found)
+	;; global options: +cmd
+	;classe.seax.edu.				IN	SOA
+	classe.seax.edu.		86400	IN	SOA	classe.seax.edu. root.classe.seax.edu. 1 604800 86400 2419200 86400
+	classe.seax.edu.		86400	IN	NS	dns.classe.seax.edu.
+	dns.classe.seax.edu.	86400	IN	A	192.168.56.102
+	itiel@X550JX:~$
+
+
+# MOSTREIG CACHE LOCAL
+----------------------
+
+Per poder veure la cache local del servidor DNS es necessari fer servir una comanda. El motiu és que l'informació s'emmagatzema
+en la memòria RAM de la màquina.
+La comanda encarregada de fer-ho possible és:
+
+	root@monitor:/var/cache/bind# rndc dumpdb -cache
+	root@monitor:/var/cache/bind#
+
+Es generarà el fitxer "named_dump.db" en el directori "/var/cache/bind" i el seu contingut sería una cosa semblant a això:
+
+	root@monitor:/var/cache/bind# cat named_dump.db
+
+	.
+	.
+	.
+
+	; glue
+	cocacola.es.		86396	NS	ns2.ko.com.
+						86396	NS	ns3.ko.com.
+						86396	NS	ns4.ko.com.
+
+	.
+	.
+	.
+
+	$DATE 20190317220124
+	;
+	; Address database dump
+	;
+	; [edns success/4096 timeout/1432 timeout/1232 timeout/512 timeout]
+	; [plain success/timeout]
+	;
+	;
+	; Unassociated entries
+	;
+	;
+	; Bad cache
+	;
+	; Dump complete
+	root@monitor:/var/cache/bind#
+
+
+# COORDINACIÓ DHCP I DNS
+------------------------
+
+Es pot configurar de manera dinàmica per a què cada cop que el dhcp entrega paràmetres a un client automàticament el dns
+emmagatzemi el nom d'aquest.
+
+
+# SCRIPT
+--------
+
+L'script treu la informació del correu de l'administrador de la zona demanada, el servidor màster, els seus esclaus, els servidor de correu MX i
+per últim resol cada un dels noms obtinguts.
+
+Per usar-ho cal indicar quin és el domini de zona a resoldre i contra quin nameserver.
+
+Exemples:
+
+	root@monitor:~# ./nameserver.sh seax.edu localhost
+	Inici 2019-03-20 17:06:42
+	Trobant correu de l'administrador FET
+	Trobant el servidor màster FET
+	Trobant els servidors esclaus FET
+	Trobant els servidors de correu FET
+	Resolent els dominis FET
+	Fi 2019-03-20 17:06:42
+	---------------- Data inici: 2019-03-20 17:06:42 ----------------
+
+	Correu administrador	root@seax.edu.
+
+	Servidor màster 	seax.edu.
+
+	Servidors esclaus	dns2.seax.edu.
+				dns.seax.edu.
+
+	Servidors de correu	Dada no trobada
+
+	Registres A		seax.edu. --> 192.168.56.104
+				seax.edu. --> 192.168.56.104
+				
+
+
+	---------------- Data fi: 2019-03-20 17:06:42 ----------------
+	root@monitor:~#
+
+	root@monitor:~# ./nameserver.sh google.com localhost
+	Inici 2019-03-20 17:11:51
+	Trobant correu de l'administrador FET
+	Trobant el servidor màster FET
+	Trobant els servidors esclaus FET
+	Trobant els servidors de correu FET
+	Resolent els dominis FET
+	Fi 2019-03-20 17:11:51
+	---------------- Data inici: 2019-03-20 17:11:51 ----------------
+
+	Correu administrador	dns-admin@google.com.
+
+	Servidor màster 	ns1.google.com.
+
+	Servidors esclaus	ns2.google.com.
+				ns3.google.com.
+				ns4.google.com.
+
+	Servidors de correu	aspmx.l.google.com. amb prioritat 10
+				alt1.aspmx.l.google.com. amb prioritat 20
+				alt2.aspmx.l.google.com. amb prioritat 30
+				alt3.aspmx.l.google.com. amb prioritat 40
+				alt4.aspmx.l.google.com. amb prioritat 50
+
+	Registres A		google.com. --> 216.58.211.46
+				ns1.google.com. --> 216.239.32.10
+				aspmx.l.google.com. --> 74.125.71.26
+				alt1.aspmx.l.google.com. --> 74.125.205.26
+				alt2.aspmx.l.google.com. --> 74.125.130.26
+				alt3.aspmx.l.google.com. --> 74.125.204.26
+				alt4.aspmx.l.google.com. --> 74.125.195.26
+				
+
+
+	---------------- Data fi: 2019-03-20 17:11:51 ----------------
+	root@monitor:~#
+
+	root@monitor:~# ./nameserver.sh cocacola.es 8.8.8.8
+	Inici 2019-03-20 17:16:11
+	Trobant correu de l'administrador FET
+	Trobant el servidor màster FET
+	Trobant els servidors esclaus FET
+	Trobant els servidors de correu FET
+	Resolent els dominis FET
+	Fi 2019-03-20 17:16:12
+	---------------- Data inici: 2019-03-20 17:16:11 ----------------
+
+	Correu administrador	ipnam@coca-cola.com.
+
+	Servidor màster 	ns3.ko.com.
+
+	Servidors esclaus	ns2.ko.com.
+				ns4.ko.com.
+
+	Servidors de correu	antispam.genetsis.com. amb prioritat 10
+
+	Registres A		cocacola.es. --> 52.14.144.171
+				ns3.ko.com. --> 161.162.84.154
+				antispam.genetsis.com. --> 82.144.102.243
+				
+
+
+	---------------- Data fi: 2019-03-20 17:16:12 ----------------
+	root@monitor:~#
+
+
+# Pràctica 2 - Sessió 2 - Implementar un servei DHCP. (Luque Díaz Itiel)
+------------------------------------------------------------------------
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* bind9 (apt-get install bind9)
+* isc-dhcp-server (apt-get install isc-dhcp-server)
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/bind/named.conf.local		-->	Configuració general de les zones.
+* /etc/bind/db.empty				--> Plantilla de configuració d'una zona.
+* /etc/bind/name.conf.options		--> Configuracions del dns bind9.
+* /etc/bind/directes-seax.edu		--> Base de dades amb les resolucions directes (nom->ip).
+* /etc/bind/inverses-seax.edu		--> Base de dades amb les resolucions inverses (ip->nom).
+* /var/cache/bind/named_dump.db		-->	Cache local del servidor DNS
+* /etc/dhcp/dhcpd.conf				--> Configuracions del servidor DHCP
+* /etc/default/isc-dhcp-server		--> Configuració de l'interficie a escoltar
+
+
+# ESCENARI
+----------
+* Servidor DHCP										--> 192.168.56.104/24
+* DNS màster 										--> 192.168.56.104/24
+* Dinàmic DNS 										--> 192.168.56.104/24
+* Interficie iservidor (Xarxa interna "servidor") 	--> 192.168.56.0/24 Rang: [.2,.30]
+* Interficie enp0s10   (Xarxa interna "itnet") 		--> 10.1.2.0/24 Rang: [.2,.29]
+
+
+# DESCRIPCIÓ
+------------
+
+Avui día és necessari fer servir un conjunt de paràmetres que fan d'aquests una configuració específica per a un entorn concret a treballar.
+La majoría d'usuaris no saben com administrar aquests valors o ni tan sols per aquest motiu, com a administradors és vol donar una certa
+configuració a una xarxa d'equips amb les seves direccions ips, netmasks, dns, gateway, etc.
+Amb un servidor DHCP s'aconsegueix fer-ho més simple i evita haver d'aprendre, des del punt de vista d'un usuari sense experiència, per a què
+serveixen cada un d'aquests.
+
+
+# CONFIGURACIÓ SERVIDOR DHCP
+----------------------------
+
+És necessari instal·lar el servei isc-dhcp-server i s'ha de configurar el fitxer /etc/default/isc-dhcp-server per a indicar per quina interficie escoltarà:
+
+	root@monitor:/etc/bind# cat /etc/default/isc-dhcp-server
+	INTERFACESv4="iservidor enp0s10"
+	INTERFACESv6=""
+	root@monitor:/etc/bind#
+
+
+	root@monitor:/etc/bind# cat /etc/dhcp/dhcpd.conf
+	ddns-update-style none;
+	default-lease-time 600;
+	max-lease-time 7200;
+	#ping true;
+	option domain-name-servers 127.0.0.1, 127.0.0.1;
+	option domain-name "seax.edu";
+	authorative;
+	log-facility local7;
+	 
+	subnet 192.168.56.0 netmask 255.255.255.0 {
+		range 192.168.56.2 192.168.56.30;
+		option subnet-mask 255.255.255.0;
+		option domain-name-servers 127.0.0.1, 127.0.0.1;
+		option domain-name "seax.edu";
+		option routers 192.168.56.1;
+		get-lease-hostnames true;
+		use-host-decl-names true;
+		default-lease-time 600;
+		max-lease-time 7200;
+	}
+
+	subnet 10.1.2.0 netmask 255.255.255.0 {
+		range 10.1.2.2 10.1.2.29;
+		option subnet-mask 255.255.255.0;
+		option domain-name-servers 127.0.0.1, 127.0.0.1;
+		option domain-name "seax.edu";
+		option routers 10.1.2.1;
+		get-lease-hostnames true;
+		use-host-decl-names true;
+		default-lease-time 600;
+		max-lease-time 7200;
+	}
+	root@monitor:/etc/bind#
+
+Per validar la configuració del client es fa servir la comanda:
+
+	root@monitor:/etc/bind# dhcpd -t -cf dhcpd.conf
+	Internet Systems Consortium DHCP Server 4.3.5
+	Copyright 2004-2016 Internet Systems Consortium.
+	All rights reserved.
+	For info, please visit https://www.isc.org/software/dhcp/
+	Can't open dhcpd.conf: No such file or directory
+
+	If you think you have received this message due to a bug rather
+	than a configuration issue please read the section on submitting
+	bugs on either our web page at www.isc.org or in the README file
+	before submitting a bug.  These pages explain the proper
+	process and the information we find helpful for debugging..
+
+	exiting.
+	root@monitor:/etc/bind#
+
+	NOTA: En aquest cas no hi ha cap tipus d'error. Està funcionant correctament.
+
+Els equips que demanin una ip s'els hi assignarà automàticament una ip del rang configurat.
+
+Per afegir diferents rangs i servir a dues xarxes totalment aïllades, s'ha de configurar les
+interfícies per les quals escoltarà el DHCP, en aquest cas, com es mostra, ho farà per la
+iservidor i enp0s10.
+Aquestes s'han de configurar manualment en /etc/network/interfaces amb el rang desitjat i
+posteriorment en el dhcp amb el pool i paràmetres que es vol com es mostra en la captura d'amunt.
+
+Configuració de les interficies:
+
+	root@monitor:~# cat /etc/network/interfaces
+	# This file describes the network interfaces available on your system
+	# and how to activate them. For more information, see interfaces(5).
+
+	source /etc/network/interfaces.d/*
+
+	# The loopback network interface
+	auto lo
+	iface lo inet loopback
+
+	# The primary network interface
+	auto iclient
+	allow-hotplug iclient
+	iface iclient inet dhcp
+
+	# The second network interface
+	auto iservidor
+	allow-hotplug iservidor
+	iface iservidor inet static
+		address 192.168.56.60
+		netmask 255.255.255.0
+		broadcast 192.168.56.255
+
+	# The third network interface
+	auto igestio
+	allow-hotplug igestio
+	iface igestio inet dhcp
+
+	auto enp0s9
+	iface enp0s9 inet dhcp
+
+	#auto enp0s10
+	iface enp0s10 inet static
+		address 10.1.2.30
+		netmask 255.255.255.0
+	root@monitor:~#
+
+
+Com a administrador potser hi ha escenaris on es vol protegir la xarxa i no es permet que qualsevol
+usuari pugui accedir-hi de forma senzilla només introduïnt un cable RJ45 a un determinat port.
+Per a això, és pot evadir reforçant la seguretat afegint-hi una autenticació d'usuari.
+Aquesta informació es troba explicada en la rfc 3118.
+
+	
+# CONFIGURACIÓ CLIENT
+---------------------
+
+L'escenari és configurar les interfícies amb xarxes internes i cadascuna aïllada.
+Per configurar-les automàticament s'han d'especificar que rebran l'ip per dhcp al fitxer
+/etc/network/interfaces com es mostra adalt.
+
+D'altra banda es poden configurar manualment en aquest mateix fitxer, però, no es recomanable
+perquè si hi existeix un altre client amb la mateixa adreça hi haurà inconsistències a l'hora
+de treballar a nivell de xarxa.
+
+L'ho convenient és que, com a administrador es configurin les adreces, és a dir, es reservin:
+
+Al mateix fitxer /etc/dhcp/dhcpd.conf:
+	 
+	host "Equip itiel" {
+	hardware ethernet 01:1F:6A:71:71:3A;
+	fixed-address 192.168.56.250;
+	}
+
+ 
+Aquesta pràctica s'ha de fer amb els servidors perquè s'han de poder accedir sempre als recursos i
+ningú ha de poder assignar les ips reservades.
+
+Per validar el servidor mitjançant el fitxers de configuració es pot fer amb les comandes:
+
+	# dhclient <interface> -v
+	# ifup <interface> -v
+
+Comprovació de les dues xarxes:
+
+	root@esclavo:~# dhclient -v itiel0
+	Internet Systems Consortium DHCP Client 4.3.5
+	Copyright 2004-2016 Internet Systems Consortium.
+	All rights reserved.
+	For info, please visit https://www.isc.org/software/dhcp/
+
+	Listening on LPF/itiel0/08:00:27:c0:3f:03
+	Sending on   LPF/itiel0/08:00:27:c0:3f:03
+	Sending on   Socket/fallback
+	DHCPDISCOVER on itiel0 to 255.255.255.255 port 67 interval 5
+	DHCPDISCOVER on itiel0 to 255.255.255.255 port 67 interval 5
+	DHCPREQUEST of 192.168.56.5 on itiel0 to 255.255.255.255 port 67
+	DHCPOFFER of 192.168.56.5 from 192.168.56.60
+	DHCPACK of 192.168.56.5 from 192.168.56.60
+	bound to 192.168.56.5 -- renewal in 263 seconds.
+	root@esclavo:~#
+
+	root@esclavo:~# dhclient -v enp0s9
+	Internet Systems Consortium DHCP Client 4.3.5
+	Copyright 2004-2016 Internet Systems Consortium.
+	All rights reserved.
+	For info, please visit https://www.isc.org/software/dhcp/
+
+	Listening on LPF/enp0s9/08:00:27:48:c4:87
+	Sending on   LPF/enp0s9/08:00:27:48:c4:87
+	Sending on   Socket/fallback
+	DHCPDISCOVER on enp0s9 to 255.255.255.255 port 67 interval 3
+	DHCPREQUEST of 10.2.1.2 on enp0s9 to 255.255.255.255 port 67
+	DHCPOFFER of 10.2.1.2 from 10.2.1.30
+	DHCPACK of 10.2.1.2 from 10.2.1.30
+	bound to 10.2.1.2 -- renewal in 295 seconds.
+	root@esclavo:~#
+
+Validació dels servidors DHCP amb l'script que s'ha programat:
+
+	root@esclavo:~# ./dhcp.sh itiel0
+	Inici 2019-03-27 20:00:32
+	Comprovant interficie itiel0...FET
+	Enviant broadcast a la xarxa i recullint dades... FET
+	Fi 2019-03-27 20:00:32
+	---------------- Data inici: 2019-03-27 20:00:32 ----------------
+
+		DHCP SERVER: 192.168.56.60
+		ADR. FÍSICA: 8:0:27:21:fa:e8
+	------------------------------------------------
+	 IP oferida			192.168.56.6
+	 Temps prèstec			300 (5m)
+	------------------------------------------------
+
+	---------------- Data fi: 2019-03-27 20:00:32 ----------------
+	root@esclavo:~# 
+
+	root@esclavo:~# ./dhcp.sh enp0s9
+	Inici 2019-03-27 19:55:55
+	Comprovant interficie enp0s9...FET
+	Enviant broadcast a la xarxa i recullint dades... FET
+	Fi 2019-03-27 19:55:56
+	---------------- Data inici: 2019-03-27 19:55:55 ----------------
+
+		DHCP SERVER: 10.2.1.30
+		ADR. FÍSICA: 8:0:27:fe:9d:56
+	------------------------------------------------
+	 IP oferida			10.2.1.3
+	 Temps prèstec			300 (5m)
+	------------------------------------------------
+
+	---------------- Data fi: 2019-03-27 19:55:56 ----------------
+	root@esclavo:~#
+
+
+# DNS DINÀMIC
+-------------
+
+Primer s'ha de generar una clau per intercanviar informació entre el DHCP i el DNS:
+
+	root# dnssec-keygen -a HMAC-MD5 -b 128 -r /dev/urandom -n USER DDNS_UPDATE
+
+La comanda generarà dos fitxers junt a la clau:
+	
+	root@monitor:/etc/dhcp# ls -l
+	total 52
+	.
+	.
+	.
+	-rw------- 1 root root   53 mar 21 11:56 Kddns_update.+157+22293.key
+	-rw------- 1 root root  165 mar 21 11:56 Kddns_update.+157+22293.private
+	.
+	.
+	.
+	root@monitor:/etc/dhcp#
+
+Amb la clau generada s'ha de crear un fitxer amb la clau que s'anomerarà ddns.key:
+
+	root@monitor:/etc/dhcp# cat ddns.key
+	key DDNS_UPDATE {
+		    algorithm HMAC-MD5.SIG-ALG.REG.INT;
+		    secret "jQHBF1skX8pcxQtCWqKHxg==";
+	};
+	root@monitor:/etc/dhcp#
+
+	NOTA: El document es pot anomenar com es vulgui.
+
+S'haurà de copiar la clau tant en /etc/dhcp com en /etc/bind per vincular-la als dos deamons:
+
+	# install -o root -g bind -m 0640 ddns.key /etc/bind/ddns.key
+	# install -o root -g root -m 0640 ddns.key /etc/dhcp/ddns.key
+
+
+Un cop ja està copiada la clau, ara, s'ha d'indicar als serveis que s'ha de notificar amb aquesta clau:
+
+	root@monitor:/etc/bind# cat named.conf.local 
+
+	include "/etc/bind/ddns.key";
+
+	zone "seax.edu" {
+		type master;
+		notify no;
+		file "/etc/bind/directes-seax.edu";
+		allow-transfer {192.168.56.102;};
+		also-notify {192.168.56.102;};
+		allow-update {key DDNS_UPDATE;};
+	};
+
+	zone "56.168.192.in-addr.arpa" {
+		type master;
+		file "/etc/bind/inverses-seax.edu";
+		allow-transfer {192.168.56.102;};
+		also-notify {192.168.56.102;};
+	};
+
+	zone "classe.seax.edu" {
+		type slave;
+		file "/etc/bind/slave/directes-classe.seax.edu";
+		masters {192.168.56.102;};
+	};
+	root@monitor:/etc/bind#
+	
+	NOTA: Els fitxer de zona no s'hauran de modificar, perquè ho farà automàticament en la cache del DNS.
+
+
+Ara s'ha de configurar el DHCP i indicar-li que a partir d'ara haurà de parlar amb el DNS per mantindre
+la associació nom -> ip:
+
+	root@monitor:/etc/dhcp# cat dhcpd.conf
+	authoritative;
+	option domain-name "seax.edu";
+	option domain-name-servers seax.edu;
+
+	ddns-updates on;
+	ddns-update-style interim;
+	ignore client-updates;
+	update-static-leases on;
+
+	default-lease-time 600;
+	max-lease-time 7200;
+	log-facility local7;
+
+
+	include "/etc/dhcp/ddns.key";
+
+	zone seax.edu. {
+	  primary 127.0.0.1;
+	  key DDNS_UPDATE;
+	}
+
+	#zone 2.168.192.in-addr.arpa. {
+	#  primary 127.0.0.1;
+	#  key DDNS_UPDATE;
+	#}
+
+
+	subnet 192.168.56.0 netmask 255.255.255.0 {
+		    range 192.168.56.2 192.168.56.50;
+		    option routers 192.168.56.1;
+	}
+	root@monitor:/etc/dhcp#
+
+	NOTA: S'ha fet només per a un rang.
+
+Les parts noves que s'han inclòs indicant que a partir d'ara és un DDNS:
+
+	option domain-name "seax.edu";
+	option domain-name-servers seax.edu;
+
+	ddns-updates on;
+	ddns-update-style interim;
+	ignore client-updates;
+	update-static-leases on;
+
+	include "/etc/dhcp/ddns.key";
+
+	zone seax.edu. {
+	  primary 127.0.0.1;
+	  key DDNS_UPDATE;
+	}
+
+	#zone 2.168.192.in-addr.arpa. {
+	#  primary 127.0.0.1;
+	#  key DDNS_UPDATE;
+	#}
+
+
+Es pot comprovar en /var/log/syslog els missatges d'intercanvi entre ambós serveis.
+S'obverva com afegeix un nou equip al dns quan el dhcp li entrega l'ip a aquest:
+
+	root@monitor:~# tail /var/log/syslog 
+	Mar 27 18:43:33 monitor named[731]: client 127.0.0.1#43856/key ddns_update: signer "ddns_update" approved
+	Mar 27 18:43:33 monitor named[731]: client 127.0.0.1#43856/key ddns_update: updating zone 'seax.edu/IN': adding an RR at 'esclavo.seax.edu' A 192.168.56.4
+	Mar 27 18:43:33 monitor named[731]: client 127.0.0.1#43856/key ddns_update: updating zone 'seax.edu/IN': adding an RR at 'esclavo.seax.edu' TXT "003c6fc841afb09128142a756ee8ae1c0a"
+	Mar 27 18:43:33 monitor dhcpd[706]: DHCPREQUEST for 192.168.56.4 (192.168.56.60) from 08:00:27:48:c4:87 (esclavo) via iservidor
+	Mar 27 18:43:33 monitor dhcpd[706]: DHCPACK on 192.168.56.4 to 08:00:27:48:c4:87 (esclavo) via iservidor
+	Mar 27 18:43:33 monitor dhcpd[706]: Added new forward map from esclavo.seax.edu to 192.168.56.4
+	Mar 27 18:43:33 monitor named[731]: client 192.168.56.102#37991: received notify for zone 'seax.edu'
+	Mar 27 18:43:34 monitor named[731]: client 192.168.56.102#46560: received notify for zone '56.168.192.in-addr.arpa'
+	Mar 27 18:43:34 monitor named[731]: client 192.168.56.102#46560: received notify for zone 'classe.seax.edu'
+	Mar 27 18:43:34 monitor named[731]: zone classe.seax.edu/IN: notify from 192.168.56.102#46560: zone is up to date
+
+Des d'un tercer equip, es tracta de resoldre contra l'equip que està oferint els dos serveis, l'ip del segon equip:
+
+	itiel@X550JX:~$ dig @192.168.56.104 esclavo.seax.edu +short
+	192.168.56.4
+	itiel@X550JX:~$
+
+
+# SCRIPT
+--------
+
+S'han fet servir les comandes nmap i dhcpdump.
+Realment la comanda nmap ja envia un broadcast i obté els DHCPOFFERS del servidors en la xarxa, però,
+existeix un bug amb la versió 7.20 i es que només mostra per pantalla el primer DHCPOFFER rebut.
+
+Amb el tcpdump a l'escolta es corrobora que funciona correctament, per tant, s'ha fet servir el dhcpdump
+que es semblant, però, especialment dedicat als paquets de DHCP.
+
+L'script executa dhcpdump amb l'interficie indicada a l'escolta en background i captura els OFFERS que rep de l'nmap 
+i així es capaç de "parsejar" les dades necessàries de tots els servidors que han donat una resposta.
+
+Paquests necessaris:
+
+ * apt-get install nmap
+ * apt-get install dhcpdump
+
+
+# Pràctica 2 - Sessions 3 i 4 -Encaminament i tallafocs. (Luque Díaz Itiel)
+---------------------------------------------------------------------------
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* bind9 (apt-get install bind9)
+* isc-dhcp-server (apt-get install isc-dhcp-server)
+* quagga (apt-get install quagga)
+* tcpdump (apt-get install tcpdump)
+* dig (apt-get install dnsutils)
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/network/interfaces		-->	Configuració de les interfícies.
+* /etc/quagga/ripd.conf			--> Configuració del protocol RIP.
+* /etc/quagga/zebra.conf		--> Configuració del dimoni zebra (quagga).
+* /etc/bind/named.conf.local	-->	Configuració de les zones DNS registrades per l'administrador.
+* /etc/bind/named.conf.default	--> Configuració de les zones per defecte.
+
+
+# ESCENARI
+----------
+
+S'ha fet servir en totes les màquines una targeta amb adaptador-només-amfitrió amb rang d'ips 192.168.56.0/24
+sent la màquina host la 192.168.56.1.
+
+* Router 1 
+	> eth-troncal-1		--> 	192.168.1.50/24 (Adaptador pont)
+	> eth-dmz			--> 	10.10.1.1/28 (Xarxa interna DMZ)
+	> eth-admin			-->		10.10.3.1/28 (Xarxa interna administradors)
+	> eth-vpn			-->		192.168.56.106/24 (adaptador-només-amfitrió vboxnet0)
+	- NAT				* Interficie: eth-troncal-1
+	- Firewall	
+* Router 2
+	> eth-troncal-2		-->		192.168.1.60/24 (Adaptador pont)
+	> eth-dmz			-->		10.10.1.2/28 (Xarxa interna DMZ)
+	> eth-clients		-->		10.10.2.1/28 (Xarxa interna clients)
+	> enp0s10			-->		192.168.56.107/24 (adaptador-només-amfitrió vboxnet0)
+	- Servidor DHCP		* Interfície: eth-dmz
+							* Rang: 10.10.1.6-10.10.1.14
+							* Routers: 10.10.1.1, 10.10.1.2
+							* Reserves: 10.10.1.11
+	- NAT 				* Interficie: eth-troncal-2 
+	- SSH
+	- Firewall
+* Router intern
+	> eth-clients		-->		10.10.2.2/28 (Xarxa interna clients)
+	> eth-admin			-->		10.10.3.2/28 (Xarxa interna administradors)
+	> eth-servidors		-->		10.10.4.1/28 (Xarxa interna servidors)
+	> enp0s10			-->		102.168.56.108/24 (adaptador-només-amfitrió vboxnet0)
+	- Servidor DHCP		* Interfície: eth-clients
+							* Rang: 10.10.2.3-10.10.2.14
+							* Routers: 10.10.2.1, 10.10.2.2
+							* Reserves: 10.10.2.11
+						* Interficie: eth-admin
+							* Rang: 10.10.3.3-10.10.3.14
+							* Routers: 10.10.3.1, 10.10.3.2
+							* Reserves: 10.10.3.11
+						* Interfície: eth-servidors
+							* Rang: 10.10.4.2-10.10.4.14
+							* Routers: 10.10.4.1
+							* Reserves: 10.10.4.4, 10.10.4.11
+	- Firewall
+* Servidor DNS 1	-->		Màster zona seax.edu (10.10.1.4/28)
+* Servidor DNS 2	--> 	Esclau zona seax.edu (10.10.1.5/28)
+* Servidor DNS 2	--> 	Màster zona server.seax.edu (10.10.1.5/28)
+* Servidor DNS 1	--> 	Esclau zona server.seax.edu	(10.10.1.4/28)
+* Servidor SSH 1	-->		10.10.1.4/28
+* Servidor SSH 2	-->		10.10.1.5/28
+
+
+# DESCRIPCIÓ
+------------
+
+En un escenari real es diposa d'un router, un firewall... que s'encarrega de mantenir els sistemes segurs i de fer nat en aquells
+serveis que ho necessiten, i la resta de dimonis, que fan un entorn de treball possible. Per exemple, el dhcp, dns, ssh i eines
+que s'encarreguen de monitoritzar el tràfic de la xarxa per tal de determinar possibles errades, intrusos, etc.
+
+
+# CONFIGURACIÓ QUAGGA
+---------------------
+
+Per començar amb la configuració del dimoni es necessari crear els fitxers:
+
+	* /etc/quagga/ripd.conf
+	* /etc/quagga/zebra.conf
+
+Seguidament, es necessari canviar propietari, grup i arrencar el dimoni amb qualsevol de les dues formes següents:
+	
+	$ service ripd start
+	$ systemctl ripd start
+
+Després de crear els fitxers i arrencat el dimoni, ja es pot accedir al protocol rip per vtysh:
+
+	root@router1:~# vtysh
+
+	Hello, this is Quagga (version 1.1.1).
+	Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+	router1#
+
+Un cop dins si s'ha executat la anterior comanda com a root s'haurà d'entrar en mode configuració:
+	
+	router1# enable
+	router1#
+
+	NOTA: No sorgeix efecte perquè ja s'havia entrat amb usuari root.
+		  Per saber si s'està en mode configuració, ho indica el simbol "#".
+
+Ara és necessari entrar en el mode de configuració per terminal per finalment configurar els dos aspectes que interesen:
+
+	router1# configure terminal
+	router1(config)#
+
+S'ha d'indicar que es vol configurar el protocol rip de tots els disponibles:
+
+	router1(config)# router rip
+	router1(config-router)#
+
+Ja es poden configurar paràmetres especifics de RIP, com la versió i les xarxes que difondrà:
+
+	router1(config-router)# version 2
+	router1(config-router)#
+
+	router1(config-router)# network eth-dmz
+	router1(config-router)#
+
+	router1(config-router)# network eth-admin
+	router1(config-router)#
+
+En el cas dels routers que es volen difondre la ruta per defecte, és a dir, la troncal, que té "accés directe" a Internet:
+
+	router1(config-router)# default-information originate
+	router1(config-router)# redistribute kernel
+	router1(config-router)#
+
+Per configurar les interfícies, es necessari baixar un nivell i configurar-les de forma específica una per una:
+	
+	router1(config-router)# exit
+	router1(config)#	
+
+Configuració específica per a una interfície:
+	
+	$ interface <nom interficie>
+
+Exemple, s'indica que per a la següent interfície es vol enviar i rebre amb versió dos del protocol rip:
+
+	seax(config)# interface eth-dmz
+	seax(config-if)# ip rip send version 2
+	seax(config-if)# ip rip receive version 2
+
+Configuració poison-reverse:
+	
+	seax(config)# interface eth-dmz
+	seax(config-if)# ip rip split-horizon poisoned-reverse 
+
+La configuració s'emmagatzema temporalment en RAM mentres vtysh està actiu, per desar s'ha de fer un write memory en el primer nivell:
+
+	router1# write memory
+	Building Configuration...
+	Configuration saved to /etc/quagga/zebra.conf
+	Configuration saved to /etc/quagga/ripd.conf
+	[OK]
+	router1#
+
+Si es vol mostrar la informació actual:
+
+	router1# show running-config
+	.
+	.
+	.
+	router1#
+
+Del mateix mode es pot mostrar la informació rellevant del protocol RIPv2 de diverses formes:
+
+	router1# show ip rip
+	Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+	Sub-codes:
+		  (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+		  (i) - interface
+
+	Network            		Next Hop         	  Metric From         Tag Time
+	K(r) 0.0.0.0/0          192.168.1.1           1 self              0
+	R(n) 10.0.2.0/24        10.10.1.2             2 10.10.1.2         0 02:56
+	C(i) 10.10.1.0/28       0.0.0.0               1 self              0
+	R(n) 10.10.2.0/28       10.10.1.2             2 10.10.1.2         0 02:56
+	C(i) 10.10.3.0/28       0.0.0.0               1 self              0
+	C(r) 192.168.1.0/24     0.0.0.0               1 self              0
+	C(r) 192.168.56.0/24    0.0.0.0               1 self              0
+	router1#
+
+	router1# show ip route
+	Codes: K - kernel route, C - connected, S - static, R - RIP,
+		   O - OSPF, I - IS-IS, B - BGP, P - PIM, A - Babel,
+		   > - selected route, * - FIB route
+
+	K>* 0.0.0.0/0 via 192.168.1.1, eth-troncal-1
+	R>* 10.0.2.0/24 [120/2] via 10.10.1.2, eth-dmz, 00:01:41
+	C>* 10.10.1.0/28 is directly connected, eth-dmz
+	R>* 10.10.2.0/28 [120/2] via 10.10.1.2, eth-dmz, 00:01:41
+	C>* 10.10.3.0/28 is directly connected, eth-admin
+	C>* 127.0.0.0/8 is directly connected, lo
+	C>* 192.168.1.0/24 is directly connected, eth-troncal-1
+	C>* 192.168.56.0/24 is directly connected, eth-vpn
+	router1#
+
+	router1# show ip rip status 
+	Routing Protocol is "rip"
+	  Sending updates every 30 seconds with +/-50%, next due in 23 seconds
+	  Timeout after 180 seconds, garbage collect after 120 seconds
+	  Outgoing update filter list for all interface is not set
+	  Incoming update filter list for all interface is not set
+	  Default redistribution metric is 1
+	  Redistributing: kernel connected
+	  Default version control: send version 2, receive version 2 
+		Interface        Send  Recv   Key-chain
+		eth-admin        2     2      
+		eth-dmz          2     2      
+	  Routing for Networks:
+		eth-dmz
+		eth-admin
+	  Routing Information Sources:
+		Gateway          BadPackets BadRoutes  Distance Last Update
+		10.10.1.2                0         0       120   00:00:18
+	  Distance: (default is 120)
+	router1#
+
+Per comprovar si tot està correctament funcionant es pot fer servir la comanda tcpdump i es poden possar diversos filtres,
+per exemple, port 520, ip multicast 224.0.0.9:
+
+Des del punt de vista del router 1 amb molt de detall:
+
+	root@router1:~# tcpdump -i any port 520 -v
+	tcpdump: listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+	04:00:24.005219 IP (tos 0xc0, ttl 1, id 56589, offset 0, flags [DF], proto UDP (17), length 172)
+	    10.10.1.2.route > rip2-routers.mcast.net.route: 
+		RIPv2, Response, length: 144, routes: 7 or less
+		  AFI IPv4,         0.0.0.0/0 , tag 0x0000, metric: 16, next-hop: 10.10.1.1
+		  AFI IPv4,        10.0.2.0/24, tag 0x0000, metric: 1, next-hop: self
+		  AFI IPv4,       10.10.1.0/28, tag 0x0000, metric: 16, next-hop: self
+		  AFI IPv4,       10.10.2.0/28, tag 0x0000, metric: 1, next-hop: self
+		  AFI IPv4,       10.10.3.0/28, tag 0x0000, metric: 16, next-hop: 10.10.1.1
+		  AFI IPv4,     192.168.1.0/24, tag 0x0000, metric: 16, next-hop: 10.10.1.1
+		  AFI IPv4,    192.168.56.0/24, tag 0x0000, metric: 1, next-hop: self
+
+	1 packet captured
+	21 packets received by filter
+	14 packets dropped by kernel
+	root@router1:~#
+
+Des del punt de vista del router 2 més simplificat:	
+
+	root@router2:~# tcpdump -i any port 520
+	tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+	listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+	02:47:10.765928 IP 10.10.1.1.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:13.451989 IP 10.10.2.1.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:13.452119 IP 10.10.1.2.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:41.480740 IP 10.10.2.1.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:41.480989 IP 10.10.1.2.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:42.767843 IP 10.10.1.1.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	^C
+	6 packets captured
+	6 packets received by filter
+	0 packets dropped by kernel
+	root@router2:~#
+
+Mostreig de la convergència de les taules d'encaminament amb el firewall activa amb política per defecte drop:
+
+	root@router1:~# vtysh
+
+	Hello, this is Quagga (version 1.1.1).
+	Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+	router1# show ip rip
+	Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+	Sub-codes:
+		  (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+		  (i) - interface
+
+	Network            		Next Hop         	  Metric From         Tag Time
+	K(r) 0.0.0.0/0          192.168.1.1           1 self              0
+	C(i) 10.10.1.0/28       0.0.0.0               1 self              0
+	R(n) 10.10.2.0/28       10.10.3.2             2 10.10.3.2         0 02:52
+	C(i) 10.10.3.0/28       0.0.0.0               1 self              0
+	R(n) 10.10.4.0/28       10.10.3.2             2 10.10.3.2         0 02:52
+	C(r) 192.168.1.0/24     0.0.0.0               1 self              0
+	C(r) 192.168.56.0/24    0.0.0.0               1 self              0
+	router1#
+
+	router2# show ip rip
+	Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+	Sub-codes:
+		  (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+		  (i) - interface
+
+ 	Network            		Next Hop         	  Metric From         Tag Time
+	R(n) 0.0.0.0/0          10.10.1.1             2 10.10.1.1         0 02:52
+	C(i) 10.10.1.0/28       0.0.0.0               1 self              0
+	C(i) 10.10.2.0/28       0.0.0.0               1 self              0
+	R(n) 10.10.3.0/28       10.10.1.1             2 10.10.1.1         0 02:52
+	R(n) 10.10.4.0/28       10.10.2.2             2 10.10.2.2         0 02:27
+	C(r) 192.168.1.0/24     0.0.0.0               1 self              0
+	C(r) 192.168.56.0/24    0.0.0.0               1 self              0
+	router2#
+
+	routerIntern# show ip rip
+	Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+	Sub-codes:
+		  (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+		  (i) - interface
+
+	Network            		Next Hop         	  Metric From         Tag Time
+	R(n) 0.0.0.0/0          10.10.3.1             2 10.10.3.1         0 02:40
+	R(n) 10.10.1.0/28       10.10.3.1             2 10.10.3.1         0 02:40
+	C(i) 10.10.2.0/28       0.0.0.0               1 self              0
+	C(i) 10.10.3.0/28       0.0.0.0               1 self              0
+	C(r) 10.10.4.0/28       0.0.0.0               1 self              0
+	R(n) 192.168.1.0/24     10.10.3.1             2 10.10.3.1         0 02:40
+	C(r) 192.168.56.0/24    0.0.0.0               1 self              0
+	routerIntern#
+
+	NOTA: El router per defecte de cada xarxa variará segons cada cop que s'arrenquin les màquines, l'ordre en que s'ha fet ja que
+		  el primer en propagar la ruta es qui serà el router per defecte a menys que aquest caigui. En aquest cas, passarà a ser
+		  un altre el per defecte.
+
+
+# SORTIDA A INTERNET
+--------------------
+
+Un cop RIPv2 ha propagat correctament la ruta per defecte cap a un altre router i aquest segon vol sortir fora perquè ell no en té
+cap ruta directament connectada a Internet, farà servir dita ruta que ha estat propagada.
+Per fer-ho possible, abans s'ha de fer un NAT en el router destí (el propagador de la ruta).
+
+	$ /sbin/iptables -t nat -A POSTROUTING -o eth-troncal-1 -j MASQUERADE
+
+I s'ha d'habilitar el forwarding per poder sortir finalment:
+
+	# echo "1" > /proc/sys/net/ipv4/ip_forward
+
+Per fer-ho persistent després de reinicialitzar l'equip:
+
+	# echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+
+Per comprovar que s'ha activat correctament, és pot mirar des de vtysh:
+
+	router1# show ip forwarding 
+	IP forwarding is on
+	router1#
+
+Un cop s'ha configurar tot i s'ha habilitat el NAT, es pot comprovar si funciona. Mostreig de la taula d'encaminament del router
+amb la troncal, taula d'encaminament del router que no està connectat directament a internet i ha de passar per un altre:
+
+	root@router1:~# ip r
+	default via 192.168.1.1 dev eth-troncal-1 
+	10.10.1.0/28 dev eth-dmz proto kernel scope link src 10.10.1.1 
+	10.10.2.0/28 via 10.10.3.2 dev eth-admin proto zebra metric 20 
+	10.10.3.0/28 dev eth-admin proto kernel scope link src 10.10.3.1 
+	10.10.4.0/28 via 10.10.3.2 dev eth-admin proto zebra metric 20 
+	192.168.1.0/24 dev eth-troncal-1 proto kernel scope link src 192.168.1.37 
+	192.168.56.0/24 dev eth-vpn proto kernel scope link src 192.168.56.106 
+	root@router1:~# 
+
+	root@routerIntern:~# ip r
+	default via 10.10.3.1 dev eth-admin proto zebra metric 20 
+	10.10.1.0/28 via 10.10.3.1 dev eth-admin proto zebra metric 20 
+	10.10.2.0/28 dev eth-clients proto kernel scope link src 10.10.2.2 
+	10.10.3.0/28 dev eth-admin proto kernel scope link src 10.10.3.2 
+	10.10.4.0/28 dev eth-servidors proto kernel scope link src 10.10.4.1 
+	192.168.1.0/24 via 10.10.3.1 dev eth-admin proto zebra metric 20 
+	192.168.56.0/24 dev enp0s10 proto kernel scope link src 192.168.56.108 
+	root@routerIntern:~#
+
+	root@routerIntern:~# ping 52.14.144.171 -c 4
+	PING 52.14.144.171 (52.14.144.171) 56(84) bytes of data.
+	64 bytes from 52.14.144.171: icmp_seq=1 ttl=227 time=114 ms
+	64 bytes from 52.14.144.171: icmp_seq=2 ttl=227 time=114 ms
+	64 bytes from 52.14.144.171: icmp_seq=3 ttl=227 time=114 ms
+	64 bytes from 52.14.144.171: icmp_seq=4 ttl=227 time=114 ms
+
+	--- 52.14.144.171 ping statistics ---
+	4 packets transmitted, 4 received, 0% packet loss, time 3005ms
+	rtt min/avg/max/mdev = 114.324/114.523/114.731/0.453 ms
+	root@routerIntern:~#
+
+
+# CONFIGURACIÓ IPTABLES
+-----------------------
+
+Per poder sortir els equips de la xarxa privada cap a Internet és necessari emmascarar les ips i activar el bit de forwarding
+de manera que permetrà la communicació amb el món exterior:
+
+	$ iptables -t nat -A POSTROUTING -o <interfície> -j MASQUERADE
+
+Per exemple, en el cas del router1 es té una interfície directament connectada a Internet coneguda com eth-troncal-1, previament reanomenada:
+
+	$ iptables -t nat -A POSTROUTING -o eth-troncal-1 -j MASQUERADE
+
+Hi ha diverses formes de fer que les iptables d'un script s'executin al iniciar el sistema, per exemple, hi ha un paquet en el repositori oficial
+que s'encarrega d'aquesta tasca (iptables-persistent). En aquest cas, es farà servir els run-levels:
+
+	root@router1:~# nano /etc/rc.local
+	#!/bin/sh -e
+	#
+	# rc.local
+	#
+	# This script is executed at the end of each multiuser runlevel.
+	# Make sure that the script will "exit 0" on success or any other
+	# value on error.
+	#
+	# In order to enable or disable this script just change the execution
+	# bits.
+	#
+	# By default this script does nothing.
+
+	# added by ADMIN to run fancy stuff at boot:
+	/root/iptables.sh || exit 1
+
+	exit 0
+	root@router1:~# chmod +x /etc/rc.local
+	root@router1:~#
+
+
+# COMUNICACIONS XARXES
+----------------------
+
+* Xarxa DMZ					- Acceptar SSH de qualsevol xarxa.
+							- Acceptar DNS de qualsevol xarxa.
+							- Es permeten els multicast RIPv2.
+
+* Xarxa clients				- Poden establir una connexió amb un servei d'Inet, pero no a l'inversa.
+							- Poden accedir als recursos de la DMZ.
+							- Poden comunicarse a través de qualsevol xarxa.
+							- Poden accedir-hi als recursos dels servidors interns.
+							- Es permeten els multicast RIPv2.
+
+* Xarxa administradors		- Poden accedir a qualsevol servei.
+							- Ningú excepte els monitors poden accedir-hi a ells.
+							- Es permeten els multicast RIPv2.
+
+* Xarxa servidors			- Són accessibles per qualsevol xarxa interna.
+							- Poden accedir als recursos de la DMZ.
+							- Es permeten els multicast RIPv2.
+
+Una aproximació en pseudo-llenguatge dels firewalls i NATs que comportaríen cascascún dels routers podría ser:
+
+	Servei											@ Origen		Port origen	@ Destí			Port destí	Protocol	Acció	Cadena		Estat
+	Router 1: SSH									10.10.3.0/28	*			10.10.3.1		22			TCP			ACCEPT	INPUT		NEW,ESTABLISHED
+	Router 1: Monitor cap a xarxa admin				10.10.3.11		*			10.10.3.1		22			TCP			ACCEPT	INPUT		NEW,ESTABLISHED
+	Router 1: Monitor cap a xarxa servidors			10.10.4.11		*			10.10.3.1		22			TCP			ACCEPT	INPUT		NEW,ESTABLISHED
+	Router 1: Monitor cap a xarxa clients			10.10.2.11		*			10.10.3.1		22			TCP			ACCEPT	INPUT		NEW,ESTABLISHED
+	Router 1: Admin cap a *							10.10.3.0/28	*			*				*			*			ACCEPT	*			NEW,ESTABLISHED
+	Router 1: DNS en DMZ							IP Troncal1		*			10.10.1.4-5		53			UDP			ACCEPT	FORWARD		NEW,ESTABLISHED
+	Router 1: SSH en DMZ							IP Troncal 1	*			10.10.1.4-5		22			TCP			ACCEPT	FORWARD		NEW,ESTABLISHED
+	Router 1: RIPv2 								10.10.1.1		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 1: RIPv2									10.10.3.2		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 1: RIPv2									10.10.3.1		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 1: RIPv2									10.10.3.2		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 1: Clients cap a Internet				10.10.2.0/28	*			0.0.0.0/0		*			*			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 1: Clients cap a equip DNS				10.10.2.0/28	*			10.10.1.4-5		53			UDP			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 1: Clients cap a equips DMZ				10.10.2.0/28	*			10.10.1.4-5		22			TCP			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 1: Clients cap a NAS						10.10.2.0/28	*			10.10.4.4		?			?			ACCEPT	FORWARD		?
+	Router 1: Monitor de xarxa -> DMZ				10.10.1.11		*			*				*			*			ACCEPT	* 			NEW, ESTABLISHED
+	Router 1: Monitor de xarxa -> Clients			10.10.2.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 1: Monitor de xarxa -> ServidorsInterns	10.10.4.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+									
+	Router 2: Monitor de xarxa -> DMZ				10.10.1.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Monitor de xarxa -> Clients			10.10.2.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Monitor de xarxa -> Administradors	10.10.3.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Monitor de xarxa -> ServidorsInterns	10.10.4.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Xarxa admin cap *						10.10.3.0/28	*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Clients cap a Internet				10.10.2.0/28	*			0.0.0.0/0		*			*			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 2: Qualsevol cap al DNS					*				*			10.10.1.4-5		53			UDP			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 2: Clients cap a equips DMZ				*				*			10.10.1.4-5		22			TCP			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 2: Clients cap a NAS						10.10.2.0/28	*			10.10.4.4		?			?			ACCEPT	FORWARD		?
+	Router 2: RIPv2 								10.10.1.2		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 2: RIPv2									10.10.1.1		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 2: RIPv2									10.10.2.1		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 2: RIPv2									10.10.2.2		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 2: DHCP discover & request				0.0.0.0/0		68			255.255.255.255	67			UDP			ACCEPT	INPUT	
+	Router 2: DHCP offer & ACK						10.10.10.2		67			255.255.255.255	68			UDP			ACCEPT	OUTPUT	
+									
+	Router 3: FORWARDIIIIIIING						10.10.x.0/28	*			10.10.x.0/28	*			all			ACCEPT	FORWARD	
+	Router 3: RIPv2 								10.10.2.2		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 3: RIPv2									10.10.2.1		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 3: RIPv2									10.10.3.2		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 3: RIPv2									10.10.3.1		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+
+En aquest cas, per maximitzar la seguretat s'ha establit la política per defecte en DROP per als routers connectats a la troncal i s'ha obert només
+els serveis necessaris.
+En quant al router intern, s'ha indicat que la política per defecte per als paquets entrants i de sortida d'aquest són DROP excepte els FORWARD que són
+ACCEPT, pel simple fet que, els routers d'accés ja tenen les seves polítiques on assegurar els requeriments exigits.
+També s'han afegit regles DROP en aquest tercer router per no permetre tot el FORWARDING, per exemple, per protegir als admins de la resta de xarxes.
+
+Per codificar les regles s'ha de fer servir iptables. Ja està en el kernel del propi Debian i s'han d'entrar com una comanda, per exemple, si es volgués
+permetre que tots els paquets amb entrada/sortida cap a la mateixa màquina amb una política per defecte drop sería:
+
+	# La pròpia màquina té accés als seus recursos
+	iptables -A INPUT -i lo -j ACCEPT
+	iptables -A OUTPUT -o lo -j ACCEPT
+
+Per comprovar quina és la política per defecte i quines regles s'estan aplicant al firewall es pot veure amb diverses comandes:
+
+	root@routerIntern:~# iptables -L
+	Chain INPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     all  --  anywhere             anywhere            
+	ACCEPT     all  --  localhost            localhost           
+	ACCEPT     udp  --  anywhere             anywhere             udp spt:ntp
+	ACCEPT     icmp --  anywhere             anywhere             icmp echo-request
+	.
+	.
+	.
+
+	Chain FORWARD (policy ACCEPT)
+	target     prot opt source               destination         
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.1.1-10.10.1.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.1.12-10.10.1.14 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.2.1-10.10.2.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.2.12-10.10.2.14 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.4.1-10.10.4.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.4.12-10.10.4.14 destination IP range 10.10.3.3-10.10.3.14
+
+	Chain OUTPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     all  --  anywhere             anywhere            
+	ACCEPT     all  --  localhost            localhost           
+	ACCEPT     udp  --  anywhere             anywhere             udp dpt:ntp
+	ACCEPT     icmp --  anywhere             anywhere             icmp echo-reply
+	ACCEPT     tcp  --  anywhere             192.168.56.0/24      tcp spt:ssh dpts:1024:65535 state ESTABLISHED
+	.
+	.
+	.
+	root@routerIntern:~#
+
+
+	root@routerIntern:~# iptables -x -L -n
+	Chain INPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0           
+	ACCEPT     all  --  127.0.0.1            127.0.0.1           
+	ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp spt:123
+	ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0            icmptype 8
+	ACCEPT     tcp  --  192.168.56.0/24      0.0.0.0/0            tcp spts:1024:65535 dpt:22 state NEW,ESTABLISHED
+	ACCEPT     all  --  10.10.3.0/28         0.0.0.0/0           
+	ACCEPT     udp  --  10.10.1.4            10.10.2.2            udp spt:53
+	.
+	.
+	.
+
+	Chain FORWARD (policy ACCEPT)
+	target     prot opt source               destination         
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.1.1-10.10.1.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.1.12-10.10.1.14 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.2.1-10.10.2.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.2.12-10.10.2.14 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.4.1-10.10.4.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.4.12-10.10.4.14 destination IP range 10.10.3.3-10.10.3.14
+
+	Chain OUTPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0           
+	ACCEPT     all  --  127.0.0.1            127.0.0.1           
+	ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp dpt:123
+	ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0            icmptype 0
+	ACCEPT     tcp  --  0.0.0.0/0            192.168.56.0/24      tcp spt:22 dpts:1024:65535 state ESTABLISHED
+	ACCEPT     all  --  0.0.0.0/0            10.10.3.0/28        
+	.
+	.
+	.	
+
+
+	Chain LOGGING (2 references)
+	target     prot opt source               destination         
+	LOG        all  --  0.0.0.0/0            0.0.0.0/0            limit: avg 1/min burst 5 LOG flags 0 level 4 prefix "IPTables-Dropped: "
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0           
+	root@routerIntern:~#
+
+
+	NOTA: S'han escurçat la captura.
+
+Per poder comprovar si les regles estan funcionant hi ha diverses formes, la primera és possant un programa tipus tcpdump escoltant la interfície i port
+que es vol comprovar si estan arribant els paquets o sortint, depenent del cas. Una segona forma és mantenint un registre ("log") de totes les peticions
+que el firewall està rebutjant.
+
+Per defecte, el kernel, quan se li indica que es vol registrar les regles que no s'estan complint, les escriu en forma d'avís en /var/log/messages.
+Per aconseguir això, s'ha d'entrar unes regles especials:
+
+	# Loguejem tots els paquets que el FW està rebutjant
+	iptables -N LOGGING
+	iptables -A INPUT -j LOGGING
+	iptables -A OUTPUT -j LOGGING
+	iptables -A LOGGING -m limit --limit 1/min -j LOG --log-prefix "IPTables-Dropped: " --log-level 4
+	iptables -A LOGGING -j DROP
+
+	NOTA: Es troben fàcilment en el fitxer gràcies al prefix que se les hi pot indicar.
+
+
+# SCRIPTS
+---------
+
+Extracció d'informació d'un domini amb l'script definit en la pràctica 1 amb un equip monitor:
+
+	root@seax:~# ./nameservers.sh seax.edu 10.10.1.4
+	---------------- Data inici: 2019-04-21 19:38:48 ----------------
+
+	Correu administrador	root@seax.edu.
+
+	Servidor màster 		dns1.seax.edu.
+
+	Servidors esclaus		dns2.seax.edu.
+
+	Servidors de correu		Dada no trobada
+
+	Registres A				seax.edu. --> 10.10.1.4
+							dns1.seax.edu. --> 10.10.1.4
+				
+
+
+	---------------- Data fi: 2019-04-21 19:38:48 ----------------
+	root@seax:~#
+	
+	root@seax:~# ./nameservers.sh seax.edu 10.10.1.5
+	---------------- Data inici: 2019-04-21 19:38:48 ----------------
+
+	Correu administrador	root@seax.edu.
+
+	Servidor màster 		dns1.seax.edu.
+
+	Servidors esclaus		dns2.seax.edu.
+
+	Servidors de correu		Dada no trobada
+
+	Registres A				seax.edu. --> 10.10.1.4
+							dns1.seax.edu. --> 10.10.1.4
+				
+
+
+	---------------- Data fi: 2019-04-21 19:38:48 ----------------
+	root@seax:~#
+
+	root@seax:~# ./nameservers.sh server.seax.edu 10.10.1.4
+	---------------- Data inici: 2019-04-21 19:45:30 ----------------
+
+	Correu administrador	root@server.seax.edu.
+
+	Servidor màster 		dns1.server.seax.edu.
+
+	Servidors esclaus		dns2.server.seax.edu.
+
+	Servidors de correu		Dada no trobada
+
+	Registres A				server.seax.edu. --> 10.10.1.5
+							dns1.server.seax.edu. --> 10.10.1.5
+				
+
+
+	---------------- Data fi: 2019-04-21 19:45:30 ----------------
+	root@seax:~#
+
+	root@seax:~# ./nameservers.sh server.seax.edu 10.10.1.5
+	---------------- Data inici: 2019-04-21 19:47:30 ----------------
+
+	Correu administrador	root@server.seax.edu.
+
+	Servidor màster 		dns1.server.seax.edu.
+
+	Servidors esclaus		dns2.server.seax.edu.
+
+	Servidors de correu		Dada no trobada
+
+	Registres A				server.seax.edu. --> 10.10.1.5
+							dns1.server.seax.edu. --> 10.10.1.5
+				
+
+
+	---------------- Data fi: 2019-04-21 19:47:30 ----------------
+	root@seax:~#
+
+
+Servidors DHCP en les diferents xarxes amb l'script definit en la pràctica 2 amb un equip monitor:
+
+	- Xarxa DMZ:
+
+		root@seax:~# ./dhcp.sh enp0s3
+		---------------- Data inici: 2019-04-21 19:50:35 ----------------
+
+			DHCP SERVER: 10.10.1.2
+			ADR. FÍSICA: 8:0:27:10:2:2
+		------------------------------------------------
+		 IP oferida			10.10.1.12
+		 Temps prèstec			300 (5m)
+		------------------------------------------------
+
+		---------------- Data fi: 2019-04-21 19:50:36 ----------------
+		root@seax:~#
+		
+	- Xarxa clients:
+
+		root@seax:~# ./dhcp.sh enp0s3
+		---------------- Data inici: 2019-04-21 19:48:27 ----------------
+
+			DHCP SERVER: 10.10.2.2
+			ADR. FÍSICA: 8:0:27:10:2:2
+		------------------------------------------------
+		 IP oferida			10.10.2.5
+		 Temps prèstec			300 (5m)
+		------------------------------------------------
+
+		---------------- Data fi: 2019-04-21 19:48:28 ----------------
+		root@seax:~#
+
+	- Xarxa administradors:
+
+		root@seax:~# ./dhcp.sh enp0s3
+		---------------- Data inici: 2019-04-21 19:52:05 ----------------
+
+			DHCP SERVER: 10.10.3.2
+			ADR. FÍSICA: 8:0:27:10:3:2
+		------------------------------------------------
+		 IP oferida			10.10.3.5
+		 Temps prèstec			300 (5m)
+		------------------------------------------------
+
+		---------------- Data fi: 2019-04-21 19:52:05 ----------------
+		root@seax:~#
+
+	- Xarxa servidors:
+		
+		root@seax:~# ./dhcp.sh enp0s3
+		---------------- Data inici: 2019-04-21 19:53:33 ----------------
+
+			DHCP SERVER: 10.10.4.1
+			ADR. FÍSICA: 8:0:27:10:4:1
+		------------------------------------------------
+		 IP oferida			10.10.4.3
+		 Temps prèstec			300 (5m)
+		------------------------------------------------
+
+		---------------- Data fi: 2019-04-21 19:53:34 ----------------
+		root@seax:~#
+
+Obtenim uns possibles atacs que està aturant el firewall amb les especificacions de les pràctiques 3 i 4:
+
+	root@router1:~# ./analitza.sh 
+	Inici 2019-04-23 23:19:44
+	Llegin el log... FET
+	Fi 2019-04-23 23:19:45
+
+	---------------- Data inici: 2019-04-23 23:19:44 ----------------
+	Possibles atacs SSH
+
+	 ------------ Apr 23 23:18:40 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-troncal-1
+	@ origen:				192.168.1.50
+	@ destí:				10.10.1.5
+	Protocol:				TCP
+	Port origen:			35124
+	Port destí:				22
+	-------------------------------------
+	------------ Apr 23 23:18:40 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-troncal-1
+	@ origen:				192.168.1.50
+	@ destí:				10.10.1.5
+	Protocol:				TCP
+	Port origen:			35124
+	Port destí:				22
+	-------------------------------------
+	------------ Apr 23 23:18:40 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-troncal-1
+	@ origen:				192.168.1.50
+	@ destí:				10.10.1.5
+	Protocol:				TCP
+	Port origen:			35124
+	Port destí:				22
+	-------------------------------------
+
+	Possibles atacs ICMP
+
+	 ------------ Apr 23 23:19:01 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.38
+	@ destí:				192.168.1.50
+	Protocol:				ICMP
+	Port origen:			Dada no proporcionada
+	Port destí:				Dada no proporcionada
+	-------------------------------------
+	------------ Apr 23 23:19:02 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.38
+	@ destí:				192.168.1.50
+	Protocol:				ICMP
+	Port origen:			Dada no proporcionada
+	Port destí:				Dada no proporcionada
+	-------------------------------------
+	------------ Apr 23 23:19:03 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.38
+	@ destí:				192.168.1.50
+	Protocol:				ICMP
+	Port origen:			Dada no proporcionada
+	Port destí:				Dada no proporcionada
+	-------------------------------------
+
+	Possibles atacs DNS
+
+	 ------------ Apr 23 23:18:32 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		eth-dmz
+	@ origen:				192.168.1.38
+	@ destí:				10.10.1.4
+	Protocol:				UDP
+	Port origen:			53528
+	Port destí:				53
+	-------------------------------------
+
+	Possibles atacs a ports ben coneguts
+
+	 ------------ Apr 23 23:15:25 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:15:26 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:15:55 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:15:56 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:16:46 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:17:43 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:17:48 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:17:56 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:18:11 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:18:28 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:18:39 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:18:57 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:19:10 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:19:13 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:19:26 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:19:44 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+
+
+	---------------- Data fi: 2019-04-23 23:19:45 ----------------
+	root@router1:~#
+
+
+# REFERÈNCIES BIBLIOGRÀFIQUES
+-----------------------------
+
+- http://www.zytrax.com/books/dns/ch9/delegate.html
+- https://serverfault.com/questions/170231/bind-how-to-delegate-subzone-to-other-dns-server
+- https://gist.github.com/magnetikonline/70625d14aabe25a227e3
+- https://www.linuxito.com/gnu-linux/nivel-basico/931-extraer-informacion-de-servidores-dns-con-dig
+- https://es.wikipedia.org/wiki/Tcpdump
+- https://rm-rf.es/tcpdump-ejemplos/
+- https://wiki.debian.org/DDNS
+- https://talk-about-it.ca/setup-bind9-with-isc-dhcp-server-dynamic-host-registration/
+- https://en.wikiversity.org/wiki/Configure_ISC-DHCP_server
+- https://www.howtoforge.com/tutorial/install-and-configure-isc-dhcp-server-in-debian-9/
+- https://openmaniak.com/quagga_tutorial.php
+- https://www.nongnu.org/quagga/docs/quagga.pdf
+- https://netref.soe.ucsc.edu/node/22
+- http://www.ticarte.com/contenido/quagga-enrutamiento-rip
+- https://sites.google.com/site/tuxnots/materias-de-la-facu/gnu-linux/proyectozebraquaggaconfiguraciones
+- https://www.linuxito.com/seguridad/411-como-configurar-el-cortafuegos-en-debian
+- https://www.cyberciti.biz/faq/how-to-list-all-iptables-rules-in-linux/
+- https://web.mit.edu/rhel-doc/4/RH-DOCS/rhel-rg-es-4/s1-iptables-options.html
+- https://serverfault.com/questions/859365/is-it-possible-to-translate-a-public-ip-to-private-ip-using-iptables
+- https://www.the-art-of-web.com/system/iptables-nat/
+- http://jensd.be/160/linux/split-horizon-dns-masterslave-with-bind
+- https://www.slashroot.in/how-to-configure-split-horizon-dns-in-bind
+- https://kb.isc.org/docs/aa-00851
+- https://ubuntuforums.org/showthread.php?t=1269911
+- https://ubuntuforums.org/showthread.php?t=1270491&p=7976418#post7976418
+- https://wiki.debian.org/iptables
+- https://www.linuxquestions.org/questions/linux-networking-3/ssh-port-forwarding-with-iptables-and-dnat-477002/
+- https://ritsch.io/2017/08/02/execute-script-at-linux-startup.html

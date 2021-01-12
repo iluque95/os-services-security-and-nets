@@ -1,0 +1,50 @@
+Pràctica 1 - Sessió 3 - Configuració de les interfícies de xarxa Wi-Fi
+
+Pràctica 1 - Configuració de les interfícies de xarxa Wi-Fi
+
+1- Configurar les interfícies Wi-Fi d'un servidor Debian. La interfície Wi-Fi s'ha de connectar a una xarxa Wi-Fi amb seguretat wpa2.
+
+2- Programar un script "informa_wifi.sh" amb shell que proporcioni la següent informació en un fitxer de sortida "info_wifi.txt".
+    - El format de sortida cal que sigui "nom dada:    valor"
+    - Dades de l'equip
+        Data
+        Usuaris humans
+        Nom de l'equip
+        Adreça IP del router
+        Adreça IP externa
+        Adreces IP dels DNS
+    - Dades de les interfícies Wi-Fi
+        Nom de la interfície
+        Adreça MAC
+        Protocols suportats
+        Si està connectada a una xarxa   
+            Adreça IP
+            Nom DNS
+            Màscara de xarxa
+            Adreça de broadcast
+            Adreça de xarxa
+            Nom de la xarxa
+            MTU
+    - Xarxes Wi-Fi operatives (per cada una)
+        Adreça MAC AP
+        Nº de canal
+        Qualitat
+        Nivell de senyal
+        ESSID
+        Xifrat
+   
+3- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p3_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p3_cognom1_nom.zip.
+
+[*] - Què cal fer per a que la targeta Wi-Fi sigui controlada per la VM? 
+[*] - Com es busca i s'instal·la el driver d'una targeta Wi-Fi?
+[*] - Com es comprova que el driver de la targeta està operatiu?
+[*] - Com es comprova si una targeta Wi-Fi està activa?
+[*] - Com es configura una targeta Wi-Fi per a connectar-se a una xarxa? Paràmetres generals i de seguretat
+[*] - Què cal fer per a detectar les xarxes disponibles a l'abast d'una targeta Wi-Fi?
+[*] - Com es demostra que una targeta Wi-Fi està associada a una xarxa i té connectivitat?
+[*] - Com es demostra que una targeta Wi-Fi detecta les xarxes disponibles al seu abast?
+[] - Quina bibliografia de referència descriu els conceptes/passos anteriors?
+[*] - Com es programa un script shell?
+[*] - Quines precaucions cal prendre a l'hora d'executar un script shell?

@@ -1,0 +1,32 @@
+Pràctica 1 - Sessió 4 - Accés al servidor mitjançant SSH
+
+Pràctica 1 - Accés al servidor mitjançant SSH
+
+1- Configurar SSH
+    - L'usuari entel hi té accés mitjançant usuari i contrasenya.
+    - L'usuari root hi té accés mitjançant certificat digital.
+    - Configurar paràmetres d'informació, xifrat, accés i manteniment de la sessió.
+    - Cal fer captures de xarxa amb un servidor i un client per validar els resultats.
+
+2- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p4_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p4_cognom1_nom.zip.
+       
+3- A títol orientatiu, el resultat de la pràctica cal que doni resposta a les següents qüestions:
+
+[*] - Com s’instal·la el client de SSH?
+[*] - Com es configura el client de SSH?
+[*] - Com es verifica el funcionament del client de SSH?
+[*] - Com s’instal·la el servidor de SSH?
+[*] - Com es configura el servidor de SSH?
+[*] - Com es verifica el funcionament del servidor de SSH?
+[*] - Com es verifica l’empremta SSH d’un servidor?
+[*] - Com cal configurar les carpetes dels usuaris?
+[*] - Com es genera un certificat digital?
+[*] - Com es permet l’accés per SSH amb certificat digital?
+[*] - Com es distribueix un certificat digital?
+[*] - Com es poden generar túnels SSH?
+[*] - Com es verifica el funcionament dels túnels SSH?
+[] - Quina bibliografia de referència descriu els conceptes anteriors?
+
+

@@ -1,0 +1,18 @@
+---------------- Data inici: 2019-03-20 17:28:45 ----------------
+
+Correu administrador	ipnam@coca-cola.com.
+
+Servidor màster 	ns3.ko.com.
+
+Servidors esclaus	ns2.ko.com.
+			ns4.ko.com.
+
+Servidors de correu	antispam.genetsis.com. amb prioritat 10
+
+Registres A		cocacola.es. --> 52.14.144.171
+			ns3.ko.com. --> 161.162.84.154
+			antispam.genetsis.com. --> 82.144.102.243
+			
+
+
+---------------- Data fi: 2019-03-20 17:28:46 ----------------

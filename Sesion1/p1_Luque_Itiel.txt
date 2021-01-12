@@ -1,0 +1,157 @@
+Pràctica 1 - Sessió 1 - Creació d'un servidor Debian amb VirtualBox
+
+Pràctica 1 - Creació d'un servidor Debian amb  VirtualBox
+
+1- Entendre el funcionament i opcions de VirtualBox.
+    - Com configurar un equip.
+    - Com clonar un equip.
+    - Com gestionar la xarxa.
+
+2- Configurar una màquina virtual bàsica amb Debian.
+    - La màquina es crearà amb la configuració mínima tant de maquinari com de programari: 1 core, 512MB de RAM, 4GB de disc i 1 ethernet.
+    - La interfície de xarxa ethernet tindrà una @ MAC definida manualment.
+    - L'equip s'anomenarà: seax.epsevg.upc.edu .
+    - Els usuaris:contrasenyes seran root:toor i entel:letne.
+
+3- Verificació de les contrasenyes utilitzades.
+    - Diccionaris de contrasenyes.
+    - Ús de l'aplicatiu John de Ripper.
+
+4- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p1_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p1_cognom1_nom.zip.
+
+5- A títol orientatiu, el resultat de la pràctica cal que doni resposta a les següents qüestions:
+
+- Com s’instal·la VirtualBox?
+
+	Descarreguem i afegim les claus oficials del repositori virtualbox:
+	# wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | sudo apt-key add -
+	# wget -q https://www.virtualbox.org/download/oracle_vbox.asc -O- | sudo apt-key add -
+	
+	Per instal·lar-ho, s'actualitza la llista de paquets previament i seguidament es pot procedir:
+	# sudo apt-get update
+	# sudo apt-get install virtualbox-6.0
+	
+- Com s’instal·la el VirtualBox Extension Pack?
+	
+	Des de la pròpia pàgina web del Virtualbox, en la secció de descàrregues hi ha
+	un enllaç directe i que suggereix que s'obri amb el mateix virtualbox perquè aquest
+	sigui l'encarregat de fer la instal·lació.
+	
+	D'altra banda també es pot instal·lar pel terminal: 
+	# sudo apt-get install virtualbox-ext-pack
+	
+	Una tercera forma desde el terminal es descarregar primer les extensions i desprès 
+	instalar-les amb les eines que ofereix virtualbox, en aquest cas, vboxmanage.
+	$ wget "https://download.virtualbox.org/virtualbox/${vboxversion}/Oracle_VM_VirtualBox_Extension_Pack-${vboxversion}.vbox 		extpack"
+	# sudo vboxmanage extpack install --replace Oracle_VM_VirtualBox_Extension_Pack-${vboxversion}.vbox-extpack
+	
+- Com es gestionen les xarxes virtuals?
+
+	Des de la pròpia màquina, en configuració de la GUI de VirtualBox en la secció xarxa es poden
+	escollir les diferents xarxes i interfícies.
+
+- Com es gestionen els mitjans virtuals?
+
+	Depenenent del mitjà té més o menys opcions a gestionar, en tots el casos, per assignar una configuració
+	vàlida en la xarxa, és a dir, una adreça ip amb les seves propietats (netmask, gatway, etc) es fa des de
+	el sistema operatiu en qüestió.
+
+- Com es gestionen les interfícies ethernet virtuals?
+
+	Per poder arribar a aquest punt és necessari fer servir el mitjà "adaptador pont".
+
+- Com es gestionen les interfícies wi-fi virtuals?
+
+	És el mateix cas que les interfícies ethernet, és necessari fer servir un mitjà en específic
+	per poder treballar amb la targeta de xarxa física de la màquina host que es vol. 
+
+- Com es gestionen els dispositius usb?
+	
+	En la configuració sobre la màquina en qüestió, en el menú USB permet habilitar el controlador i la versió que es vol fer 		servir. 
+	
+- Com es crea una màquina virtual?
+
+	En l'entorn gràfic de VirtualBox; Màquina>Nova o Ctrl+N.
+	
+- Com es configuren els paràmetres clau d’una màquina virtual?
+
+	Fent clic dret i anant a configuració. Els més importants/crítics es troben en les seccions Sistema, Pantalla,
+	emmagatzematge i Xarxa.
+		
+- Com es clona una màquina virtual?
+
+	S'ha de seleccionar la màquina origen i fer clic dret i pitjar en "clona" o bé la seqüència de comandes Ctrl+O.
+	
+	Sense GUI;
+	
+	$ VBoxManage clonevm <source-machine-name> --name <target-machine-name> --register
+
+	
+- Com s’exporta/importa una màquina virtual?
+
+	En l'entorn gràfic de VirtualBox; Arxiu>Importar/Exportar servei virtualitzat o Ctrl+I/Ctrl+E respectivament.
+	
+	Sense GUI, es pot fer amb les següents comandes:
+	$ VBoxManage list vms
+	
+	Per exportar:
+	$ VBoxManage export [Machine name] --output [Path to output and name of cloned machine with extension .ova]
+	
+	Per importar:
+	$ VBoxManage import [Machine name] [Path of machine]
+	
+- Com es pot copiar manualment una màquina virtual?
+	
+	Per poder fer servir la màquina es necessari canviar-li el valor Machine UUID que es el identificador únic
+	per a cada una. Es pot trobar en el mateix fitxer .vbox, és a dir, la màquina, que en realitat és un XML
+	amb totes les característiques que són interpretades per l'eina virtualbox. A més, s'ha de canviar l'identificador
+	del disc dur.
+	
+	$ VBoxManage internalcommands sethduuid <disk name>
+	
+- Com es canvia l'identificador d'una màquina virtual?
+	
+	$ VBoxManage modifyvm <uuid|vmname> --hardwareuuid <uuid>
+	
+- Com s’utilitzen les instantànies d’una màquina virtual?
+
+	Amb la màquina executant-se, clic en les ToolBar en la pestanya Màquina>Prendre una instantània.
+	
+- Com es pot accedir remotament a una màquina virtual?
+	
+	En la màquina en qüestió, en la seva configuració de la pantalla en la pestanya "Pantalla remota" es pot
+	habilitar un servidor que ofereix el protocol RDP (Remote Desktop Protocol).
+	
+- Com es poden intercanviar fitxers amb una màquina virtual?
+	
+	Compartint una carpeta entre màquina host i guest. En el client del virtualbox quan la màquina està corrent,
+	en la pestanya Dispositiu>Carpetes compartides>Preferències de les carpetes compartides.
+	Clic en l'icona per afegir una nova carpeta del sistema de fitxers de l'host.
+	Les característiques depenen de si es vol que nomès sigui de lectura, que s'automunti, el punt de muntatge
+	i si es vol que sigui permanent.
+	
+- Com s’instal·len les Guest Additions?
+
+	# apt-get update
+	# apt-get install build-essential module-assistant
+	# m-a prepare
+
+	S'ha d'insertar el disc de les GuestAdditions que en el entorn gràfic del virtualbox es pot fer en 
+	Dispositius>Insertar imatge de CD de les "GuestAdditions".
+
+	Un cop inserit el CD s'haurà automuntat en la ruta /media/cdrom o /media/cdrom0, en la qual s'haura d'accedir per tal 
+	d'executar l'script i instal·lar-les.
+		# sh VBoxLinuxAdditions.run
+
+- Com es pot verificar la seguretat de les contrasenyes dels usuaris d’una màquina?
+
+	Amb alguna eina on es pugui provar la robustessa d'aquestes, com per exemple John the Ripper o medusa per els serveis.
+
+- Com s’utilitzen els diccionaris per verificar la seguretat de les contrasenyes dels usuaris d’una màquina?
+	
+	Es manté un registre de les claus més populars de tot el món, és a dir, les més fàcils d'obtenir i es comparen amb
+	les dels usuaris.
+
+- Quina bibliografia de referència descriu els conceptes anteriors?

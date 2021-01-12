@@ -1,0 +1,8 @@
+-Tener una ruta en el lado del cliente permite:
+	1. Dirigir todo el tráfico hacia la VPN.
+	2. Dirigir solo aquel tráfico que va hacia la VPN. Implica cambiar el gateway.
+
+-Las máscaras del servidor son /32 porque son P-t-P (Point to Point) donde solo hay 2 en una conexión punto a punto.
+
+- tcpdump -i eth0 udp port 1194
+- tcpdump -n -i tun0 icmp

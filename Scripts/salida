@@ -1,0 +1,32 @@
+---------------- Data inici: 2019-06-14 15:20:54 ----------------
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+IFACE: wlp3s0, MONITOR: prism0. DRIVER: wl0, FIRMWARE: 6.30.223.271, VERSION: (r587334). BANDS: 2.4GHz & 5GHz, MODE: Managed, TX-POWER: 200 dBm   
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ESSID           TYPE VENDOR                               MAC               CHANNEL FREQUENCY SIGNAL BANDWITH CIPHER ASSOCIATION     ATTEMPT       
+-----           ---- ------                               ---               ------- --------- ------ -------- ------ -----------     -------       
+MiFibra-1716    AP   Unknown                              94:6A:B0:9B:17:18 1       2.412GHz  2      54       WPA2   Not associated  No attempts 
+Ojoberque       AP   Unknown                              4C:1B:86:AC:5E:15 1       2.412GHz  2      54       WPA2   Not associated  No attempts 
+SWV 733 A2 2.4G AP   Winstars Technology Ltd              80:3F:5D:B3:B2:67 11      2.462GHz  2      54       WPA2   Not associated  No attempts 
+Unknown         CLI  SHENZHEN RF-LINK TECHNOLOGY CO.,LTD. CC:79:CF:EC:CC:2E 1       2.412GHz  2      54       WPA2   MiFibra-1716    94:6A:B0:9B:17:18
+Unknown         CLI  Samsung Electronics Co.,Ltd          C4:57:6E:C0:6B:F0 --      --        2      --       --     Not associated  not associated 
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+IFACE: wlx00117f494b60, MONITOR: wlan0mon. DRIVER: rt2800usb, FIRMWARE: 4.15.0-51-generic, VERSION: 0.36. BANDS: 2.4GHz, MODE: Managed, TX-POWER: 20 dBm   
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ESSID            TYPE VENDOR                          MAC               CHANNEL FREQUENCY SIGNAL BANDWITH CIPHER ASSOCIATION      ATTEMPT       
+-----            ---- ------                          ---               ------- --------- ------ -------- ------ -----------      -------       
+.:RouteR:.       AP   Unknown                         E2:41:36:3A:9E:88 11      2.462GHz  -78    54       WPA2   Not associated   No attempts 
+Orange-A3CD      AP   Arcadyan Technology Corporation 88:03:55:D6:A3:CF 11      2.462GHz  -78    54       WPA2   Not associated   No attempts 
+DIRECT-A3-BRAVIA AP   Unknown                         8E:57:9B:0D:EC:37 11      2.462GHz  -75    54       WPA2   Not associated   No attempts 
+MOVISTAR_FBE1    AP   Comtrend Corporation            F8:8E:85:FF:FB:E2 11      2.462GHz  -69    54       WEP    Not associated   No attempts 
+SWV 733 A2 2.4G  AP   Winstars Technology Ltd         80:3F:5D:B3:B2:67 11      2.462GHz  -22    54       WPA2   Not associated   No attempts 
+Unknown          CLI  Wistron Neweb Corporation       8C:57:9B:AD:EC:37 11      2.462GHz  -84    54       WPA2   Orange-A3CD      F8:8E:85:FF:FB:E2
+Unknown          CLI  Nintendo Co., Ltd.              58:BD:A3:E3:FC:4C --      --        -82    --       --     Not associated   not associated 
+Unknown          CLI  Samsung Electronics Co.,Ltd     C4:57:6E:C0:6B:F0 --      --        -72    --       --     Not associated   not associated 
+Unknown          CLI  Hon Hai Precision Ind. Co.,Ltd. 94:39:E5:68:90:7B 11      2.462GHz  -44    54       WEP    MOVISTAR_FBE1    80:3F:5D:B3:B2:67
+Unknown          CLI  Xiaomi Communications Co Ltd    78:02:F8:61:13:F0 --      --        -32    --       --     Not associated   not associated 
+Unknown          CLI  Sony Mobile Communications AB   58:48:22:BF:A5:E7                   -1                                      F8:8E:85:FF:FB:E2
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+
+---------------- Data fi: 2019-06-14 15:21:30 ----------------

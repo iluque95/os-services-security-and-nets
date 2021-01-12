@@ -1,0 +1,44 @@
+
+Pràctica 3 - Sessió 3 - Serveis sobre HTTP i HTTPS
+
+Pràctica 3 - Sessió 3 - Serveis sobre HTTP i HTTPS
+
+1- Configurar el servidor Apacke2.
+    - Instal·lar el servidor Apache2.
+    - Crear el site entel (http), que mostra la IP de qui es connecta.
+    - Crear el site entel amb SSL (https), que mostra la IP de qui es connecta.
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant eines del sistema i realitzar captures de xarxa amb un servidor i un client.
+
+2- Configurar el servidor de fitxers amb webdav.
+    - Instal·lar el servidor webdav sobre Apache2.
+    - Configurar l'acces al servidor per a l'usuari entel (http i https).
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant eines del sistema i realitzar captures de xarxa amb un servidor i un client.
+
+3- Configurar el servidor d'administració del sistema amb webmin.
+    - Instal·lar el servidor webmin.
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant eines del sistema i realitzar captures de xarxa amb un servidor i un client.
+
+4- Configurar la home del servidor.
+    - Crear la home del servidor, que redirigeix cap al servidor de fitxers (webdav), a l'administració del sistema (webmin), o a la informació de la IP de qui es connecta.
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant eines del sistema i realitzar captures de xarxa amb un servidor i un client.
+
+5- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p3_s3_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p3_s3_cognom1_nom.zip.
+   
+   
+6- A títol orientatiu, el resultat de la pràctica cal que doni resposta a les següents qüestions:
+[*]    - Com es configura un servidor Apache2 amb accés http?
+[*]    - Com es configura un servidor Apache2 amb accés https?
+[*]    - Com es configura un servidor webdav amb accés http?
+[*]    - Com es configura un servidor webdav amb accés https?
+[*]    - Com es configura un servidor webmin amb accés http?
+[*]    - Com es configura un servidor webmin amb accés https?
+[*]    - Com es configura un servidor web amb múltiples serveis?
+[*]    - Com es configuren les taules IP d'un servidor Apache2?
+[*]    - Com es configuren les taules IP d'un servidor webdav?
+[*]    - Com es configuren les taules IP d'un servidor webmin?

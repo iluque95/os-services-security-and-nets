@@ -1,0 +1,1018 @@
+Pràctica 2 - Sessions 3 i 4 -Encaminament i tallafocs. (Luque Díaz Itiel)
+
+
+# INDEX
+-------
+
+(*) PROGRAMARI NECESSARI......18
+(*) FITXER RELACIONATS........29
+(*) ESCENARI..................39
+(*) DESCRIPCIÓ................90
+(*) CONFIGURACIÓ QUAGGA.......98
+(*) SORTIDA A INTERNET.......347
+(*) CONFIGURACIÓ IPTABLES....406
+(*) COMUNICACIONS XARXES.....443
+(*) SCRIPTS..................618
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* bind9 (apt-get install bind9)
+* isc-dhcp-server (apt-get install isc-dhcp-server)
+* quagga (apt-get install quagga)
+* tcpdump (apt-get install tcpdump)
+* dig (apt-get install dnsutils)
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/network/interfaces		-->	Configuració de les interfícies.
+* /etc/quagga/ripd.conf			--> Configuració del protocol RIP.
+* /etc/quagga/zebra.conf		--> Configuració del dimoni zebra (quagga).
+* /etc/bind/named.conf.local	-->	Configuració de les zones DNS registrades per l'administrador.
+* /etc/bind/named.conf.default	--> Configuració de les zones per defecte.
+
+
+# ESCENARI
+----------
+
+S'ha fet servir en totes les màquines una targeta amb adaptador-només-amfitrió amb rang d'ips 192.168.56.0/24
+sent la màquina host la 192.168.56.1.
+
+* Router 1 
+	> eth-troncal-1		--> 	192.168.1.50/24 (Adaptador pont)
+	> eth-dmz			--> 	10.10.1.1/28 (Xarxa interna DMZ)
+	> eth-admin			-->		10.10.3.1/28 (Xarxa interna administradors)
+	> eth-vpn			-->		192.168.56.106/24 (adaptador-només-amfitrió vboxnet0)
+	- NAT				* Interficie: eth-troncal-1
+	- Firewall	
+* Router 2
+	> eth-troncal-2		-->		192.168.1.60/24 (Adaptador pont)
+	> eth-dmz			-->		10.10.1.2/28 (Xarxa interna DMZ)
+	> eth-clients		-->		10.10.2.1/28 (Xarxa interna clients)
+	> enp0s10			-->		192.168.56.107/24 (adaptador-només-amfitrió vboxnet0)
+	- Servidor DHCP		* Interfície: eth-dmz
+							* Rang: 10.10.1.6-10.10.1.14
+							* Routers: 10.10.1.1, 10.10.1.2
+							* Reserves: 10.10.1.11
+	- NAT 				* Interficie: eth-troncal-2 
+	- SSH
+	- Firewall
+* Router intern
+	> eth-clients		-->		10.10.2.2/28 (Xarxa interna clients)
+	> eth-admin			-->		10.10.3.2/28 (Xarxa interna administradors)
+	> eth-servidors		-->		10.10.4.1/28 (Xarxa interna servidors)
+	> enp0s10			-->		102.168.56.108/24 (adaptador-només-amfitrió vboxnet0)
+	- Servidor DHCP		* Interfície: eth-clients
+							* Rang: 10.10.2.3-10.10.2.14
+							* Routers: 10.10.2.1, 10.10.2.2
+							* Reserves: 10.10.2.11
+						* Interficie: eth-admin
+							* Rang: 10.10.3.3-10.10.3.14
+							* Routers: 10.10.3.1, 10.10.3.2
+							* Reserves: 10.10.3.11
+						* Interfície: eth-servidors
+							* Rang: 10.10.4.2-10.10.4.14
+							* Routers: 10.10.4.1
+							* Reserves: 10.10.4.4, 10.10.4.11
+	- Firewall
+* Servidor DNS 1	-->		Màster zona seax.edu (10.10.1.4/28)
+* Servidor DNS 2	--> 	Esclau zona seax.edu (10.10.1.5/28)
+* Servidor DNS 2	--> 	Màster zona server.seax.edu (10.10.1.5/28)
+* Servidor DNS 1	--> 	Esclau zona server.seax.edu	(10.10.1.4/28)
+* Servidor SSH 1	-->		10.10.1.4/28
+* Servidor SSH 2	-->		10.10.1.5/28
+
+
+# DESCRIPCIÓ
+------------
+
+En un escenari real es diposa d'un router, un firewall... que s'encarrega de mantenir els sistemes segurs i de fer nat en aquells
+serveis que ho necessiten, i la resta de dimonis, que fan un entorn de treball possible. Per exemple, el dhcp, dns, ssh i eines
+que s'encarreguen de monitoritzar el tràfic de la xarxa per tal de determinar possibles errades, intrusos, etc.
+
+
+# CONFIGURACIÓ QUAGGA
+---------------------
+
+Per començar amb la configuració del dimoni es necessari crear els fitxers:
+
+	* /etc/quagga/ripd.conf
+	* /etc/quagga/zebra.conf
+
+Seguidament, es necessari canviar propietari, grup i arrencar el dimoni amb qualsevol de les dues formes següents:
+	
+	$ service ripd start
+	$ systemctl ripd start
+
+Després de crear els fitxers i arrencat el dimoni, ja es pot accedir al protocol rip per vtysh:
+
+	root@router1:~# vtysh
+
+	Hello, this is Quagga (version 1.1.1).
+	Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+	router1#
+
+Un cop dins si s'ha executat la anterior comanda com a root s'haurà d'entrar en mode configuració:
+	
+	router1# enable
+	router1#
+
+	NOTA: No sorgeix efecte perquè ja s'havia entrat amb usuari root.
+		  Per saber si s'està en mode configuració, ho indica el simbol "#".
+
+Ara és necessari entrar en el mode de configuració per terminal per finalment configurar els dos aspectes que interesen:
+
+	router1# configure terminal
+	router1(config)#
+
+S'ha d'indicar que es vol configurar el protocol rip de tots els disponibles:
+
+	router1(config)# router rip
+	router1(config-router)#
+
+Ja es poden configurar paràmetres especifics de RIP, com la versió i les xarxes que difondrà:
+
+	router1(config-router)# version 2
+	router1(config-router)#
+
+	router1(config-router)# network eth-dmz
+	router1(config-router)#
+
+	router1(config-router)# network eth-admin
+	router1(config-router)#
+
+En el cas dels routers que es volen difondre la ruta per defecte, és a dir, la troncal, que té "accés directe" a Internet:
+
+	router1(config-router)# default-information originate
+	router1(config-router)# redistribute kernel
+	router1(config-router)#
+
+Per configurar les interfícies, es necessari baixar un nivell i configurar-les de forma específica una per una:
+	
+	router1(config-router)# exit
+	router1(config)#	
+
+Configuració específica per a una interfície:
+	
+	$ interface <nom interficie>
+
+Exemple, s'indica que per a la següent interfície es vol enviar i rebre amb versió dos del protocol rip:
+
+	seax(config)# interface eth-dmz
+	seax(config-if)# ip rip send version 2
+	seax(config-if)# ip rip receive version 2
+
+Configuració poison-reverse:
+	
+	seax(config)# interface eth-dmz
+	seax(config-if)# ip rip split-horizon poisoned-reverse 
+
+La configuració s'emmagatzema temporalment en RAM mentres vtysh està actiu, per desar s'ha de fer un write memory en el primer nivell:
+
+	router1# write memory
+	Building Configuration...
+	Configuration saved to /etc/quagga/zebra.conf
+	Configuration saved to /etc/quagga/ripd.conf
+	[OK]
+	router1#
+
+Si es vol mostrar la informació actual:
+
+	router1# show running-config
+	.
+	.
+	.
+	router1#
+
+Del mateix mode es pot mostrar la informació rellevant del protocol RIPv2 de diverses formes:
+
+	router1# show ip rip
+	Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+	Sub-codes:
+		  (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+		  (i) - interface
+
+	Network            		Next Hop         	  Metric From         Tag Time
+	K(r) 0.0.0.0/0          192.168.1.1           1 self              0
+	R(n) 10.0.2.0/24        10.10.1.2             2 10.10.1.2         0 02:56
+	C(i) 10.10.1.0/28       0.0.0.0               1 self              0
+	R(n) 10.10.2.0/28       10.10.1.2             2 10.10.1.2         0 02:56
+	C(i) 10.10.3.0/28       0.0.0.0               1 self              0
+	C(r) 192.168.1.0/24     0.0.0.0               1 self              0
+	C(r) 192.168.56.0/24    0.0.0.0               1 self              0
+	router1#
+
+	router1# show ip route
+	Codes: K - kernel route, C - connected, S - static, R - RIP,
+		   O - OSPF, I - IS-IS, B - BGP, P - PIM, A - Babel,
+		   > - selected route, * - FIB route
+
+	K>* 0.0.0.0/0 via 192.168.1.1, eth-troncal-1
+	R>* 10.0.2.0/24 [120/2] via 10.10.1.2, eth-dmz, 00:01:41
+	C>* 10.10.1.0/28 is directly connected, eth-dmz
+	R>* 10.10.2.0/28 [120/2] via 10.10.1.2, eth-dmz, 00:01:41
+	C>* 10.10.3.0/28 is directly connected, eth-admin
+	C>* 127.0.0.0/8 is directly connected, lo
+	C>* 192.168.1.0/24 is directly connected, eth-troncal-1
+	C>* 192.168.56.0/24 is directly connected, eth-vpn
+	router1#
+
+	router1# show ip rip status 
+	Routing Protocol is "rip"
+	  Sending updates every 30 seconds with +/-50%, next due in 23 seconds
+	  Timeout after 180 seconds, garbage collect after 120 seconds
+	  Outgoing update filter list for all interface is not set
+	  Incoming update filter list for all interface is not set
+	  Default redistribution metric is 1
+	  Redistributing: kernel connected
+	  Default version control: send version 2, receive version 2 
+		Interface        Send  Recv   Key-chain
+		eth-admin        2     2      
+		eth-dmz          2     2      
+	  Routing for Networks:
+		eth-dmz
+		eth-admin
+	  Routing Information Sources:
+		Gateway          BadPackets BadRoutes  Distance Last Update
+		10.10.1.2                0         0       120   00:00:18
+	  Distance: (default is 120)
+	router1#
+
+Per comprovar si tot està correctament funcionant es pot fer servir la comanda tcpdump i es poden possar diversos filtres,
+per exemple, port 520, ip multicast 224.0.0.9:
+
+Des del punt de vista del router 1 amb molt de detall:
+
+	root@router1:~# tcpdump -i any port 520 -v
+	tcpdump: listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+	04:00:24.005219 IP (tos 0xc0, ttl 1, id 56589, offset 0, flags [DF], proto UDP (17), length 172)
+	    10.10.1.2.route > rip2-routers.mcast.net.route: 
+		RIPv2, Response, length: 144, routes: 7 or less
+		  AFI IPv4,         0.0.0.0/0 , tag 0x0000, metric: 16, next-hop: 10.10.1.1
+		  AFI IPv4,        10.0.2.0/24, tag 0x0000, metric: 1, next-hop: self
+		  AFI IPv4,       10.10.1.0/28, tag 0x0000, metric: 16, next-hop: self
+		  AFI IPv4,       10.10.2.0/28, tag 0x0000, metric: 1, next-hop: self
+		  AFI IPv4,       10.10.3.0/28, tag 0x0000, metric: 16, next-hop: 10.10.1.1
+		  AFI IPv4,     192.168.1.0/24, tag 0x0000, metric: 16, next-hop: 10.10.1.1
+		  AFI IPv4,    192.168.56.0/24, tag 0x0000, metric: 1, next-hop: self
+
+	1 packet captured
+	21 packets received by filter
+	14 packets dropped by kernel
+	root@router1:~#
+
+Des del punt de vista del router 2 més simplificat:	
+
+	root@router2:~# tcpdump -i any port 520
+	tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+	listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+	02:47:10.765928 IP 10.10.1.1.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:13.451989 IP 10.10.2.1.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:13.452119 IP 10.10.1.2.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:41.480740 IP 10.10.2.1.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:41.480989 IP 10.10.1.2.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	02:47:42.767843 IP 10.10.1.1.route > rip2-routers.mcast.net.route: RIPv2, Response, length: 144
+	^C
+	6 packets captured
+	6 packets received by filter
+	0 packets dropped by kernel
+	root@router2:~#
+
+Mostreig de la convergència de les taules d'encaminament amb el firewall activa amb política per defecte drop:
+
+	root@router1:~# vtysh
+
+	Hello, this is Quagga (version 1.1.1).
+	Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+	router1# show ip rip
+	Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+	Sub-codes:
+		  (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+		  (i) - interface
+
+	Network            		Next Hop         	  Metric From         Tag Time
+	K(r) 0.0.0.0/0          192.168.1.1           1 self              0
+	C(i) 10.10.1.0/28       0.0.0.0               1 self              0
+	R(n) 10.10.2.0/28       10.10.3.2             2 10.10.3.2         0 02:52
+	C(i) 10.10.3.0/28       0.0.0.0               1 self              0
+	R(n) 10.10.4.0/28       10.10.3.2             2 10.10.3.2         0 02:52
+	C(r) 192.168.1.0/24     0.0.0.0               1 self              0
+	C(r) 192.168.56.0/24    0.0.0.0               1 self              0
+	router1#
+
+	router2# show ip rip
+	Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+	Sub-codes:
+		  (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+		  (i) - interface
+
+ 	Network            		Next Hop         	  Metric From         Tag Time
+	R(n) 0.0.0.0/0          10.10.1.1             2 10.10.1.1         0 02:52
+	C(i) 10.10.1.0/28       0.0.0.0               1 self              0
+	C(i) 10.10.2.0/28       0.0.0.0               1 self              0
+	R(n) 10.10.3.0/28       10.10.1.1             2 10.10.1.1         0 02:52
+	R(n) 10.10.4.0/28       10.10.2.2             2 10.10.2.2         0 02:27
+	C(r) 192.168.1.0/24     0.0.0.0               1 self              0
+	C(r) 192.168.56.0/24    0.0.0.0               1 self              0
+	router2#
+
+	routerIntern# show ip rip
+	Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
+	Sub-codes:
+		  (n) - normal, (s) - static, (d) - default, (r) - redistribute,
+		  (i) - interface
+
+	Network            		Next Hop         	  Metric From         Tag Time
+	R(n) 0.0.0.0/0          10.10.3.1             2 10.10.3.1         0 02:40
+	R(n) 10.10.1.0/28       10.10.3.1             2 10.10.3.1         0 02:40
+	C(i) 10.10.2.0/28       0.0.0.0               1 self              0
+	C(i) 10.10.3.0/28       0.0.0.0               1 self              0
+	C(r) 10.10.4.0/28       0.0.0.0               1 self              0
+	R(n) 192.168.1.0/24     10.10.3.1             2 10.10.3.1         0 02:40
+	C(r) 192.168.56.0/24    0.0.0.0               1 self              0
+	routerIntern#
+
+	NOTA: El router per defecte de cada xarxa variará segons cada cop que s'arrenquin les màquines, l'ordre en que s'ha fet ja que
+		  el primer en propagar la ruta es qui serà el router per defecte a menys que aquest caigui. En aquest cas, passarà a ser
+		  un altre el per defecte.
+
+
+
+# SORTIDA A INTERNET
+--------------------
+
+Un cop RIPv2 ha propagat correctament la ruta per defecte cap a un altre router i aquest segon vol sortir fora perquè ell no en té
+cap ruta directament connectada a Internet, farà servir dita ruta que ha estat propagada.
+Per fer-ho possible, abans s'ha de fer un NAT en el router destí (el propagador de la ruta).
+
+	$ /sbin/iptables -t nat -A POSTROUTING -o eth-troncal-1 -j MASQUERADE
+
+I s'ha d'habilitar el forwarding per poder sortir finalment:
+
+	# echo "1" > /proc/sys/net/ipv4/ip_forward
+
+Per fer-ho persistent després de reinicialitzar l'equip:
+
+	# echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+
+Per comprovar que s'ha activat correctament, és pot mirar des de vtysh:
+
+	router1# show ip forwarding 
+	IP forwarding is on
+	router1#
+
+Un cop s'ha configurar tot i s'ha habilitat el NAT, es pot comprovar si funciona. Mostreig de la taula d'encaminament del router
+amb la troncal, taula d'encaminament del router que no està connectat directament a internet i ha de passar per un altre:
+
+	root@router1:~# ip r
+	default via 192.168.1.1 dev eth-troncal-1 
+	10.10.1.0/28 dev eth-dmz proto kernel scope link src 10.10.1.1 
+	10.10.2.0/28 via 10.10.3.2 dev eth-admin proto zebra metric 20 
+	10.10.3.0/28 dev eth-admin proto kernel scope link src 10.10.3.1 
+	10.10.4.0/28 via 10.10.3.2 dev eth-admin proto zebra metric 20 
+	192.168.1.0/24 dev eth-troncal-1 proto kernel scope link src 192.168.1.37 
+	192.168.56.0/24 dev eth-vpn proto kernel scope link src 192.168.56.106 
+	root@router1:~# 
+
+	root@routerIntern:~# ip r
+	default via 10.10.3.1 dev eth-admin proto zebra metric 20 
+	10.10.1.0/28 via 10.10.3.1 dev eth-admin proto zebra metric 20 
+	10.10.2.0/28 dev eth-clients proto kernel scope link src 10.10.2.2 
+	10.10.3.0/28 dev eth-admin proto kernel scope link src 10.10.3.2 
+	10.10.4.0/28 dev eth-servidors proto kernel scope link src 10.10.4.1 
+	192.168.1.0/24 via 10.10.3.1 dev eth-admin proto zebra metric 20 
+	192.168.56.0/24 dev enp0s10 proto kernel scope link src 192.168.56.108 
+	root@routerIntern:~#
+
+	root@routerIntern:~# ping 52.14.144.171 -c 4
+	PING 52.14.144.171 (52.14.144.171) 56(84) bytes of data.
+	64 bytes from 52.14.144.171: icmp_seq=1 ttl=227 time=114 ms
+	64 bytes from 52.14.144.171: icmp_seq=2 ttl=227 time=114 ms
+	64 bytes from 52.14.144.171: icmp_seq=3 ttl=227 time=114 ms
+	64 bytes from 52.14.144.171: icmp_seq=4 ttl=227 time=114 ms
+
+	--- 52.14.144.171 ping statistics ---
+	4 packets transmitted, 4 received, 0% packet loss, time 3005ms
+	rtt min/avg/max/mdev = 114.324/114.523/114.731/0.453 ms
+	root@routerIntern:~#
+
+
+# CONFIGURACIÓ IPTABLES
+-----------------------
+
+Per poder sortir els equips de la xarxa privada cap a Internet és necessari emmascarar les ips i activar el bit de forwarding
+de manera que permetrà la communicació amb el món exterior:
+
+	$ iptables -t nat -A POSTROUTING -o <interfície> -j MASQUERADE
+
+Per exemple, en el cas del router1 es té una interfície directament connectada a Internet coneguda com eth-troncal-1, previament reanomenada:
+
+	$ iptables -t nat -A POSTROUTING -o eth-troncal-1 -j MASQUERADE
+
+Hi ha diverses formes de fer que les iptables d'un script s'executin al iniciar el sistema, per exemple, hi ha un paquet en el repositori oficial
+que s'encarrega d'aquesta tasca (iptables-persistent). En aquest cas, es farà servir els run-levels:
+
+	root@router1:~# nano /etc/rc.local
+	#!/bin/sh -e
+	#
+	# rc.local
+	#
+	# This script is executed at the end of each multiuser runlevel.
+	# Make sure that the script will "exit 0" on success or any other
+	# value on error.
+	#
+	# In order to enable or disable this script just change the execution
+	# bits.
+	#
+	# By default this script does nothing.
+
+	# added by ADMIN to run fancy stuff at boot:
+	/root/iptables.sh || exit 1
+
+	exit 0
+	root@router1:~# chmod +x /etc/rc.local
+	root@router1:~#
+
+
+# COMUNICACIONS XARXES
+----------------------
+
+* Xarxa DMZ					- Acceptar SSH de qualsevol xarxa.
+							- Acceptar DNS de qualsevol xarxa.
+							- Es permeten els multicast RIPv2.
+
+* Xarxa clients				- Poden establir una connexió amb un servei d'Inet, pero no a l'inversa.
+							- Poden accedir als recursos de la DMZ.
+							- Poden comunicarse a través de qualsevol xarxa.
+							- Poden accedir-hi als recursos dels servidors interns.
+							- Es permeten els multicast RIPv2.
+
+* Xarxa administradors		- Poden accedir a qualsevol servei.
+							- Ningú excepte els monitors poden accedir-hi a ells.
+							- Es permeten els multicast RIPv2.
+
+* Xarxa servidors			- Són accessibles per qualsevol xarxa interna.
+							- Poden accedir als recursos de la DMZ.
+							- Es permeten els multicast RIPv2.
+
+Una aproximació en pseudo-llenguatge dels firewalls i NATs que comportaríen cascascún dels routers podría ser:
+
+	Servei											@ Origen		Port origen	@ Destí			Port destí	Protocol	Acció	Cadena		Estat
+	Router 1: SSH									10.10.3.0/28	*			10.10.3.1		22			TCP			ACCEPT	INPUT		NEW,ESTABLISHED
+	Router 1: Monitor cap a xarxa admin				10.10.3.11		*			10.10.3.1		22			TCP			ACCEPT	INPUT		NEW,ESTABLISHED
+	Router 1: Monitor cap a xarxa servidors			10.10.4.11		*			10.10.3.1		22			TCP			ACCEPT	INPUT		NEW,ESTABLISHED
+	Router 1: Monitor cap a xarxa clients			10.10.2.11		*			10.10.3.1		22			TCP			ACCEPT	INPUT		NEW,ESTABLISHED
+	Router 1: Admin cap a *							10.10.3.0/28	*			*				*			*			ACCEPT	*			NEW,ESTABLISHED
+	Router 1: DNS en DMZ							IP Troncal1		*			10.10.1.4-5		53			UDP			ACCEPT	FORWARD		NEW,ESTABLISHED
+	Router 1: SSH en DMZ							IP Troncal 1	*			10.10.1.4-5		22			TCP			ACCEPT	FORWARD		NEW,ESTABLISHED
+	Router 1: RIPv2 								10.10.1.1		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 1: RIPv2									10.10.3.2		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 1: RIPv2									10.10.3.1		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 1: RIPv2									10.10.3.2		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 1: Clients cap a Internet				10.10.2.0/28	*			0.0.0.0/0		*			*			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 1: Clients cap a equip DNS				10.10.2.0/28	*			10.10.1.4-5		53			UDP			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 1: Clients cap a equips DMZ				10.10.2.0/28	*			10.10.1.4-5		22			TCP			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 1: Clients cap a NAS						10.10.2.0/28	*			10.10.4.4		?			?			ACCEPT	FORWARD		?
+	Router 1: Monitor de xarxa -> DMZ				10.10.1.11		*			*				*			*			ACCEPT	* 			NEW, ESTABLISHED
+	Router 1: Monitor de xarxa -> Clients			10.10.2.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 1: Monitor de xarxa -> ServidorsInterns	10.10.4.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+									
+	Router 2: Monitor de xarxa -> DMZ				10.10.1.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Monitor de xarxa -> Clients			10.10.2.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Monitor de xarxa -> Administradors	10.10.3.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Monitor de xarxa -> ServidorsInterns	10.10.4.11		*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Xarxa admin cap *						10.10.3.0/28	*			*				*			*			ACCEPT	*			NEW, ESTABLISHED
+	Router 2: Clients cap a Internet				10.10.2.0/28	*			0.0.0.0/0		*			*			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 2: Qualsevol cap al DNS					*				*			10.10.1.4-5		53			UDP			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 2: Clients cap a equips DMZ				*				*			10.10.1.4-5		22			TCP			ACCEPT	FORWARD		NEW, ESTABLISHED
+	Router 2: Clients cap a NAS						10.10.2.0/28	*			10.10.4.4		?			?			ACCEPT	FORWARD		?
+	Router 2: RIPv2 								10.10.1.2		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 2: RIPv2									10.10.1.1		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 2: RIPv2									10.10.2.1		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 2: RIPv2									10.10.2.2		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 2: DHCP discover & request				0.0.0.0/0		68			255.255.255.255	67			UDP			ACCEPT	INPUT	
+	Router 2: DHCP offer & ACK						10.10.10.2		67			255.255.255.255	68			UDP			ACCEPT	OUTPUT	
+									
+	Router 3: FORWARDIIIIIIING						10.10.x.0/28	*			10.10.x.0/28	*			all			ACCEPT	FORWARD	
+	Router 3: RIPv2 								10.10.2.2		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 3: RIPv2									10.10.2.1		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+	Router 3: RIPv2									10.10.3.2		*			224.0.0.9		520			UDP			ACCEPT	OUTPUT	
+	Router 3: RIPv2									10.10.3.1		*			224.0.0.9		520			UDP			ACCEPT	INPUT	
+
+En aquest cas, per maximitzar la seguretat s'ha establit la política per defecte en DROP per als routers connectats a la troncal i s'ha obert només
+els serveis necessaris.
+En quant al router intern, s'ha indicat que la política per defecte per als paquets entrants i de sortida d'aquest són DROP excepte els FORWARD que són
+ACCEPT, pel simple fet que, els routers d'accés ja tenen les seves polítiques on assegurar els requeriments exigits.
+També s'han afegit regles DROP en aquest tercer router per no permetre tot el FORWARDING, per exemple, per protegir als admins de la resta de xarxes.
+
+Per codificar les regles s'ha de fer servir iptables. Ja està en el kernel del propi Debian i s'han d'entrar com una comanda, per exemple, si es volgués
+permetre que tots els paquets amb entrada/sortida cap a la mateixa màquina amb una política per defecte drop sería:
+
+	# La pròpia màquina té accés als seus recursos
+	iptables -A INPUT -i lo -j ACCEPT
+	iptables -A OUTPUT -o lo -j ACCEPT
+
+Per comprovar quina és la política per defecte i quines regles s'estan aplicant al firewall es pot veure amb diverses comandes:
+
+	root@routerIntern:~# iptables -L
+	Chain INPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     all  --  anywhere             anywhere            
+	ACCEPT     all  --  localhost            localhost           
+	ACCEPT     udp  --  anywhere             anywhere             udp spt:ntp
+	ACCEPT     icmp --  anywhere             anywhere             icmp echo-request
+	.
+	.
+	.
+
+	Chain FORWARD (policy ACCEPT)
+	target     prot opt source               destination         
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.1.1-10.10.1.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.1.12-10.10.1.14 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.2.1-10.10.2.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.2.12-10.10.2.14 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.4.1-10.10.4.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  anywhere             anywhere             source IP range 10.10.4.12-10.10.4.14 destination IP range 10.10.3.3-10.10.3.14
+
+	Chain OUTPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     all  --  anywhere             anywhere            
+	ACCEPT     all  --  localhost            localhost           
+	ACCEPT     udp  --  anywhere             anywhere             udp dpt:ntp
+	ACCEPT     icmp --  anywhere             anywhere             icmp echo-reply
+	ACCEPT     tcp  --  anywhere             192.168.56.0/24      tcp spt:ssh dpts:1024:65535 state ESTABLISHED
+	.
+	.
+	.
+	root@routerIntern:~#
+
+
+	root@routerIntern:~# iptables -x -L -n
+	Chain INPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0           
+	ACCEPT     all  --  127.0.0.1            127.0.0.1           
+	ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp spt:123
+	ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0            icmptype 8
+	ACCEPT     tcp  --  192.168.56.0/24      0.0.0.0/0            tcp spts:1024:65535 dpt:22 state NEW,ESTABLISHED
+	ACCEPT     all  --  10.10.3.0/28         0.0.0.0/0           
+	ACCEPT     udp  --  10.10.1.4            10.10.2.2            udp spt:53
+	.
+	.
+	.
+
+	Chain FORWARD (policy ACCEPT)
+	target     prot opt source               destination         
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.1.1-10.10.1.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.1.12-10.10.1.14 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.2.1-10.10.2.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.2.12-10.10.2.14 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.4.1-10.10.4.10 destination IP range 10.10.3.3-10.10.3.14
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0            source IP range 10.10.4.12-10.10.4.14 destination IP range 10.10.3.3-10.10.3.14
+
+	Chain OUTPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     all  --  0.0.0.0/0            0.0.0.0/0           
+	ACCEPT     all  --  127.0.0.1            127.0.0.1           
+	ACCEPT     udp  --  0.0.0.0/0            0.0.0.0/0            udp dpt:123
+	ACCEPT     icmp --  0.0.0.0/0            0.0.0.0/0            icmptype 0
+	ACCEPT     tcp  --  0.0.0.0/0            192.168.56.0/24      tcp spt:22 dpts:1024:65535 state ESTABLISHED
+	ACCEPT     all  --  0.0.0.0/0            10.10.3.0/28        
+	.
+	.
+	.	
+
+
+	Chain LOGGING (2 references)
+	target     prot opt source               destination         
+	LOG        all  --  0.0.0.0/0            0.0.0.0/0            limit: avg 1/min burst 5 LOG flags 0 level 4 prefix "IPTables-Dropped: "
+	DROP       all  --  0.0.0.0/0            0.0.0.0/0           
+	root@routerIntern:~#
+
+
+	NOTA: S'han escurçat la captura.
+
+Per poder comprovar si les regles estan funcionant hi ha diverses formes, la primera és possant un programa tipus tcpdump escoltant la interfície i port
+que es vol comprovar si estan arribant els paquets o sortint, depenent del cas. Una segona forma és mantenint un registre ("log") de totes les peticions
+que el firewall està rebutjant.
+
+Per defecte, el kernel, quan se li indica que es vol registrar les regles que no s'estan complint, les escriu en forma d'avís en /var/log/messages.
+Per aconseguir això, s'ha d'entrar unes regles especials:
+
+	# Loguejem tots els paquets que el FW està rebutjant
+	iptables -N LOGGING
+	iptables -A INPUT -j LOGGING
+	iptables -A OUTPUT -j LOGGING
+	iptables -A LOGGING -m limit --limit 1/min -j LOG --log-prefix "IPTables-Dropped: " --log-level 4
+	iptables -A LOGGING -j DROP
+
+	NOTA: Es troben fàcilment en el fitxer gràcies al prefix que se les hi pot indicar.
+
+
+# SCRIPTS
+---------
+
+Extracció d'informació d'un domini amb l'script definit en la pràctica 1 amb un equip monitor:
+
+	root@seax:~# ./nameservers.sh seax.edu 10.10.1.4
+	---------------- Data inici: 2019-04-21 19:38:48 ----------------
+
+	Correu administrador	root@seax.edu.
+
+	Servidor màster 		dns1.seax.edu.
+
+	Servidors esclaus		dns2.seax.edu.
+
+	Servidors de correu		Dada no trobada
+
+	Registres A				seax.edu. --> 10.10.1.4
+							dns1.seax.edu. --> 10.10.1.4
+				
+
+
+	---------------- Data fi: 2019-04-21 19:38:48 ----------------
+	root@seax:~#
+	
+	root@seax:~# ./nameservers.sh seax.edu 10.10.1.5
+	---------------- Data inici: 2019-04-21 19:38:48 ----------------
+
+	Correu administrador	root@seax.edu.
+
+	Servidor màster 		dns1.seax.edu.
+
+	Servidors esclaus		dns2.seax.edu.
+
+	Servidors de correu		Dada no trobada
+
+	Registres A				seax.edu. --> 10.10.1.4
+							dns1.seax.edu. --> 10.10.1.4
+				
+
+
+	---------------- Data fi: 2019-04-21 19:38:48 ----------------
+	root@seax:~#
+
+	root@seax:~# ./nameservers.sh server.seax.edu 10.10.1.4
+	---------------- Data inici: 2019-04-21 19:45:30 ----------------
+
+	Correu administrador	root@server.seax.edu.
+
+	Servidor màster 		dns1.server.seax.edu.
+
+	Servidors esclaus		dns2.server.seax.edu.
+
+	Servidors de correu		Dada no trobada
+
+	Registres A				server.seax.edu. --> 10.10.1.5
+							dns1.server.seax.edu. --> 10.10.1.5
+				
+
+
+	---------------- Data fi: 2019-04-21 19:45:30 ----------------
+	root@seax:~#
+
+	root@seax:~# ./nameservers.sh server.seax.edu 10.10.1.5
+	---------------- Data inici: 2019-04-21 19:47:30 ----------------
+
+	Correu administrador	root@server.seax.edu.
+
+	Servidor màster 		dns1.server.seax.edu.
+
+	Servidors esclaus		dns2.server.seax.edu.
+
+	Servidors de correu		Dada no trobada
+
+	Registres A				server.seax.edu. --> 10.10.1.5
+							dns1.server.seax.edu. --> 10.10.1.5
+				
+
+
+	---------------- Data fi: 2019-04-21 19:47:30 ----------------
+	root@seax:~#
+
+
+Servidors DHCP en les diferents xarxes amb l'script definit en la pràctica 2 amb un equip monitor:
+
+	- Xarxa DMZ:
+
+		root@seax:~# ./dhcp.sh enp0s3
+		---------------- Data inici: 2019-04-21 19:50:35 ----------------
+
+			DHCP SERVER: 10.10.1.2
+			ADR. FÍSICA: 8:0:27:10:2:2
+		------------------------------------------------
+		 IP oferida			10.10.1.12
+		 Temps prèstec			300 (5m)
+		------------------------------------------------
+
+		---------------- Data fi: 2019-04-21 19:50:36 ----------------
+		root@seax:~#
+		
+	- Xarxa clients:
+
+		root@seax:~# ./dhcp.sh enp0s3
+		---------------- Data inici: 2019-04-21 19:48:27 ----------------
+
+			DHCP SERVER: 10.10.2.2
+			ADR. FÍSICA: 8:0:27:10:2:2
+		------------------------------------------------
+		 IP oferida			10.10.2.5
+		 Temps prèstec			300 (5m)
+		------------------------------------------------
+
+		---------------- Data fi: 2019-04-21 19:48:28 ----------------
+		root@seax:~#
+
+	- Xarxa administradors:
+
+		root@seax:~# ./dhcp.sh enp0s3
+		---------------- Data inici: 2019-04-21 19:52:05 ----------------
+
+			DHCP SERVER: 10.10.3.2
+			ADR. FÍSICA: 8:0:27:10:3:2
+		------------------------------------------------
+		 IP oferida			10.10.3.5
+		 Temps prèstec			300 (5m)
+		------------------------------------------------
+
+		---------------- Data fi: 2019-04-21 19:52:05 ----------------
+		root@seax:~#
+
+	- Xarxa servidors:
+		
+		root@seax:~# ./dhcp.sh enp0s3
+		---------------- Data inici: 2019-04-21 19:53:33 ----------------
+
+			DHCP SERVER: 10.10.4.1
+			ADR. FÍSICA: 8:0:27:10:4:1
+		------------------------------------------------
+		 IP oferida			10.10.4.3
+		 Temps prèstec			300 (5m)
+		------------------------------------------------
+
+		---------------- Data fi: 2019-04-21 19:53:34 ----------------
+		root@seax:~#
+
+Obtenim uns possibles atacs que està aturant el firewall amb les especificacions de les pràctiques 3 i 4:
+
+	root@router1:~# ./analitza.sh 
+	Inici 2019-04-23 23:19:44
+	Llegin el log... FET
+	Fi 2019-04-23 23:19:45
+
+	---------------- Data inici: 2019-04-23 23:19:44 ----------------
+	Possibles atacs SSH
+
+	 ------------ Apr 23 23:18:40 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-troncal-1
+	@ origen:				192.168.1.50
+	@ destí:				10.10.1.5
+	Protocol:				TCP
+	Port origen:			35124
+	Port destí:				22
+	-------------------------------------
+	------------ Apr 23 23:18:40 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-troncal-1
+	@ origen:				192.168.1.50
+	@ destí:				10.10.1.5
+	Protocol:				TCP
+	Port origen:			35124
+	Port destí:				22
+	-------------------------------------
+	------------ Apr 23 23:18:40 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-troncal-1
+	@ origen:				192.168.1.50
+	@ destí:				10.10.1.5
+	Protocol:				TCP
+	Port origen:			35124
+	Port destí:				22
+	-------------------------------------
+
+	Possibles atacs ICMP
+
+	 ------------ Apr 23 23:19:01 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.38
+	@ destí:				192.168.1.50
+	Protocol:				ICMP
+	Port origen:			Dada no proporcionada
+	Port destí:				Dada no proporcionada
+	-------------------------------------
+	------------ Apr 23 23:19:02 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.38
+	@ destí:				192.168.1.50
+	Protocol:				ICMP
+	Port origen:			Dada no proporcionada
+	Port destí:				Dada no proporcionada
+	-------------------------------------
+	------------ Apr 23 23:19:03 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.38
+	@ destí:				192.168.1.50
+	Protocol:				ICMP
+	Port origen:			Dada no proporcionada
+	Port destí:				Dada no proporcionada
+	-------------------------------------
+
+	Possibles atacs DNS
+
+	 ------------ Apr 23 23:18:32 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		eth-dmz
+	@ origen:				192.168.1.38
+	@ destí:				10.10.1.4
+	Protocol:				UDP
+	Port origen:			53528
+	Port destí:				53
+	-------------------------------------
+
+	Possibles atacs a ports ben coneguts
+
+	 ------------ Apr 23 23:15:25 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:15:26 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:15:55 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:15:56 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:16:46 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:17:43 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:17:48 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:17:56 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:18:11 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:18:28 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:18:39 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:18:57 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:19:10 -------------
+	Interfície entrada:		eth-troncal-1
+	Interfície sortida:		Dada no proporcionada
+	@ origen:				192.168.1.46
+	@ destí:				192.168.1.255
+	Protocol:				UDP
+	Port origen:			137
+	Port destí:				137
+	------------------------------------------
+	------------ Apr 23 23:19:13 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:19:26 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+	------------ Apr 23 23:19:44 -------------
+	Interfície entrada:		Dada no proporcionada
+	Interfície sortida:		eth-vpn
+	@ origen:				192.168.56.106
+	@ destí:				192.168.56.100
+	Protocol:				UDP
+	Port origen:			68
+	Port destí:				67
+	------------------------------------------
+
+
+	---------------- Data fi: 2019-04-23 23:19:45 ----------------
+	root@router1:~#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+

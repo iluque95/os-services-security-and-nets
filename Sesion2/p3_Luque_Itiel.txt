@@ -1,0 +1,188 @@
+Pràctica 2 - Sessions 3 i 4 - Encaminament i tallafocs
+
+Llegiu aquest document amb l'esquema de l'escenari al davant.
+
+1 – Descripció de les xarxes
+
+	· Xarxa troncal I (1)
+
+		· Descripció: xarxa “real” des d’on es pot accedir a Internet.
+
+		· IP: x.y.z.u/m
+
+		· Interfícies: eth-troncal-1
+
+	· Xarxa troncal II (2)
+
+		· Descripció: xarxa “real” des d’on es pot accedir a Internet.
+
+		· IP: x.y.z.u/m
+
+		· Interfícies: eth-troncal-2
+
+	· Xarxa DMZ (3)
+
+		· Descripció: zona desmilitaritzada on ubicar servidors amb accés des d’Internet: SSH i DNS.
+
+		· IP: 10.10.1.0/28
+
+		· Interfícies: eth-dmz
+
+	· Xarxa servidors (4)
+
+		· Descripció: xarxa de servidors interns de l’organització. S'hi ubicarà un NAS [Pràctica 3] amb IP 10.10.4.4/28. 
+
+		· IP: 10.10.4.0/28
+
+		· Interfícies: eth-servidors
+
+	· Xarxa clients (5)
+
+		· Descripció: xarxa amb els equips client de treball.
+
+		· IP: 10.10.2.0/28
+
+		· Interfícies: eth-clients
+
+	· Xarxa administradors (6)
+
+		· Descripció: xarxa dels administradors.
+
+		· IP: 10.10.3.0/28
+
+		· Interfícies: eth-admin
+
+	· Xarxa VPN (5) [Pràctica 3]
+
+		· Descripció: xarxa on s’adrecen els clients de la xarxa privada virtual.
+
+		· IP: 10.10.5.0/28
+
+		
+
+2 – Descripció dels equips
+
+	· Router d’accés I
+
+		· Funció: aïllar de la xarxa troncal
+
+		· Interfícies
+
+			· Troncal I -> IP: x.y.z.u   - MAC: 08:00:27:00:01:01
+
+			· DMZ       -> IP: 10.10.1.1 - MAC: 08:00:27:10:01:01
+
+			· admin     -> IP: 10.10.3.1 - MAC: 08:00:27:10:03:01
+
+            · VPN       -> IP: 10.10.5.1 - MAC: 08:00:27:10:05:01
+
+		· Serveis: encaminament, tallafocs i NAT.
+
+	· Router d’accés II
+
+		· Funció: aïllar de la xarxa troncal
+
+		· Interfícies
+
+			· Troncal II-> IP: x.y.z.u   - MAC: 08:00:27:00:02:01
+
+			· DMZ       -> IP: 10.10.1.2 - MAC: 08:00:27:10:02:02
+
+			· clients   -> IP: 10.10.2.1 - MAC: 08:00:27:10:02:01
+
+		· Serveis: DHCP, encaminament, tallafocs i NAT.
+
+		· Comentaris: el servidor DHCP donarà servei a la xarxa DMZ. Es realitzaran les reserves necessàries pels equips coneguts, tot deixant la resta com a dinàmiques. 
+
+	· Router intern 
+
+		· Funció: protegir la xarxa de servidors interns
+
+		· Interfícies
+
+			· clients   -> IP: 10.10.2.2 - MAC: 08:00:27:10:02:02
+
+			· admin     -> IP: 10.10.3.2 - MAC: 08:00:27:10:03:02
+
+			· servers   -> IP: 10.10.4.1 - MAC: 08:00:27:10:04:01
+
+		· Serveis: DHCP, encaminament, tallafocs i NAT.
+
+		· Comentaris: el servidor DHCP donarà servei a la xarxa servidors, clients i administradors. Es realitzaran les reserves necessàries pels equips coneguts, tot deixant la resta com a dinàmiques. 
+
+ 	· Servidors DNS i ssh (2 equips)
+
+		· Funció: servidor de noms de domini
+
+		· Interfícies
+
+			· DMZ (DNS1) -> IP: 10.10.1.4 - MAC: 08:00:27:10:01:04
+
+			· DMZ (DNS2) -> IP: 10.10.1.5 - MAC: 08:00:27:10:01:05
+
+		· Serveis: Oferirà resolució de noms del domini seax.edu (servidor DNS1) i el subdomini classe.seax.edu (DNS2). Seran accessibles via ssh
+
+	· Monitor de xarxa (3 equips)
+
+		· Funció: obtenir dades de la xarxa local on es trobi situat 
+
+		· Interfícies
+
+			· XX -> IP: x.y.z.11 - MAC: 08:00:27:10:00:11
+
+		· Serveis: S’hi podrà accedir via SSH. 
+
+	
+
+3 – Directrius de seguretat
+
+	· Cal garantir poder proporcionar els serveis definits, diferenciant els de la DMZ dels interns.
+
+	· Els usuaris de la xarxa Clients han de poder accedir a totes les xarxes.
+
+	· Els usuaris de la xarxa Administradors han de poder accedir a totes les xarxes i a tots els equips.
+
+	· Els usuaris de la xarxa Administradors han de poder accedir a totes les xarxes i als routers.
+
+	. Amb indepdència d'on es trobi, l'equip Monitor de xarxa,  ha de tenir els mateix drets d'accés que un equip de la xarxa d'Administradors.
+
+	. Cal maximitzar la seguretat de les xarxes.
+
+
+4 - Tasques a realitzar
+
+	· Crear els routers d'accés i intern de la xarxa amb la configuració descrita. 
+
+	· Configurar els serveis d'encaminament utilitzant un protocol d'encaminament dinàmic (RIPv2), tallafocs i traducció d'adreces de xarxa necessaris en els 3 routers.
+
+	· Fer les proves pertinents per comprovar que la configuració és operativa.
+
+	· Programar un script que configuri adientment les taules ip dels routers.
+
+	· Programar un script que analitzi els logs de les taules ip per detectar atacs de xarxa.
+
+	
+
+5- Lliurar els resultats mitjançant Atenea (2 fitxers).
+
+	- Redactar l'informe de la pràctica p7_cognom1_nom.txt.
+
+	- Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p7_cognom1_nom.zip.
+
+
+6- A títol orientatiu el resulat de la pràctica cal que doni resposta a les següents qüestions:
+
+[*] - Quina configuració (nombre, tipus d'adatador i xarxa interna a la que estan connectats si és el cas) tenen les màquines virtuals de l'escenari?
+[*] - Com es configuren els noms de les interfícies a les màquines de l'escenari?
+[*] - Com es configuren els routers RIPv2 de l'escenari per a que actuïn com a tals? 
+[*] - Quina és la taula d'encaminament de cadascun dels routers del escenari un cop estigui tot configurat? Hi ha més d'una ruta possible per cada xarxa? Per què?
+[*] - Quin és el router per defecte de cada xarxa?
+[*] - Com es configuren els paràmetres bàsics per tenir connectivitat IP per cadascuna de les màquines de l'escenari (estàtic, dinàmic, dinàmic amb reserva)?
+[*] - Quines comunicacions es permenten entre cadascuna de les xarxes (Internet, DMZ, clients, servidor)? Contestar per una i cadascuna de les altres
+[*] - Com es configuren els tallafocs/NAT per aconseguir això? Diferencieuncieu la part de filtrat de paquets de la de NAT
+[*] - Com es comproba que la configuració anterior es correcta?    
+[*] - Com es pot guardar la configuració d'iptables en un fitxer i després tornar a carregar?
+[*] - Com s'automatitza aquesta configuració en forma d'script?
+[*] - De manera particular, quines accions s'han fet per a maximitzar la seguretat?
+[] - Quina lògica segueix l'script que analitza els logs d'iptables per detectar atacs?
+[] - Com s'executa cada script? Quina sortida n'hem d'esperar?

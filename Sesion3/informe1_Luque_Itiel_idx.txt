@@ -1,0 +1,750 @@
+Pràctica 3 - Sessió 1 - Accés al servidor mitjançant SFTP i SAMBA. (Luque Díaz Itiel)
+
+
+# INDEX
+-------
+
+(*) PROGRAMARI NECESSARI.................21
+(*) FITXER RELACIONATS...................34
+(*) DESCRIPCIÓ...........................42
+(*) CONFIGURACIÓ SFTP....................50
+(*) MUNTATGE RECURS SFTP................121
+(*) COMPARTICIÓ D'UN RECURS SFTP........236
+(*) CONFIGURACIÓ SMB....................255
+(*) COMPARTICIÓ RECURSOS SMB............299
+(*) CLIENT I MUNTATGE SMB...............340
+(*) SEGURETAT...........................480
+(*) BACKUPS.............................523
+(*) AUTOMATITZACIÓ AMB CRON.............713
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* openssh-server (apt-get install openssh-server)
+* sshfs (apt-get install sshfs)
+* samba (apt-get install samba)
+* smbclient (apt-get install smbclient)
+* cifs-utils (apt-get install cifs-utils)
+* rsync (apt-get install rsync)
+* borgbackup (apt-get install borgbackup)
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/ssh/sshd_config	-->	Configuració general del servidor ssh i del servidor sftp.
+* /etc/fstab			--> Punts de muntatge automàtics.
+* /etc/samba/smb.conf	--> Configuració general de samba.
+
+
+# DESCRIPCIÓ
+------------
+
+Quan s'ha arribat a configurar un escenari totalment funcional, un punt a tenir en compte, molt important, és la integritat de les dades i la redundància d'aquestes.
+Per a això, és convenient poder administrar-les de forma segura i remota amb protocols com l'sftp on de forma no gràfica i gràfica es poden moure d'un lloc cap a 
+un altre de manera senzilla. Per guarantir la preservació de les dades és molt important fer backups, que a més, poden estar compartits en la xarxa amb altres equips.
+
+
+# CONFIGURACIÓ SFTP
+-------------------
+
+El paquet a descarregar és l'ssh del costat del client és l'openssh-client i del costat del servidor és openssh-server respectivament.
+
+Per engabiar a un usuari i permetre que només hi tiguin accés als seus recursos, és necessari canviar paràmetres del fitxer /etc/ssh/sshd_config.
+
+Primer de tot, s'ha d'establir un criteri que en aquest cas es seguirà el de engaviar per grup d'usuari en comptes d'especificar usuari per usuari,
+a més, s'ha d'especificar quin serà el directory a engaviar, que en asquest cas, s'ha engaviat el home de l'usuari:
+
+	root@esclavo:~# cat /etc/ssh/sshd_config 
+	.
+	.
+	.
+	Match Group filetransfer
+		ChrootDirectory %h
+		AllowTcpForwarding no
+		X11Forwarding no
+		ForceCommand internal-sftp
+	root@esclavo:~#
+
+	NOTA: Per afegir un grup (groupadd filetransfer).
+
+S'ha de canviar el subsistema que es farà servir amb aquest grup:
+
+	root@esclavo:~# cat /etc/ssh/sshd_config 
+	.
+	.
+	.
+	# override default of no subsystems
+	#Subsystem	sftp	/usr/lib/openssh/sftp-server
+	Subsystem	sftp	internal-sftp
+	.
+	.
+	.
+	root@esclavo:~#
+
+Els usuaris no poden accedir si no tenen directoris. Per exemple, s'han creat uns amb els permisos, grup i propietari següents:
+	
+	root@esclavo:~# ls -l /home
+	total 32
+	drwxr-xr-x 5 root    root     4096 mai  2 11:28 entel
+	drwxr-xr-x 7 root    root     4096 mai  7 23:38 itiel
+	drwxr-xr-x 2 itiel2  itiel2   4096 feb 17 13:53 itiel2
+	drwx------ 2 root    root    16384 feb 14 18:41 lost+found
+	drwxr-xr-x 2 paquito paquito  4096 mai  7 23:47 paquito
+	root@esclavo:~#
+
+	NOTA: Els usuaris engabiats, han de tenir els seus directoris amb propietari usuari, grup de root.
+
+	root@esclavo:/home/entel# ls -l
+	total 8
+	drwxr-xr-x 2 entel filetransfer 4096 mai  2 11:28 docs
+	drwxr-xr-x 2 entel filetransfer 4096 mai  2 11:28 public_html
+	root@esclavo:/home/entel#
+
+S'ha afegit seguretat amb certificats com es va especificar en la sessió 4 de la pràctica 1.
+
+Comprovació de funcionament del servidor i client per comandes:
+
+	itiel@X550JX:~$ sftp -i key entel@192.168.56.102
+	Connected to 192.168.56.102.
+	sftp> ls
+	docs         public_html  
+	sftp> version
+	SFTP protocol version 3
+	sftp>
+	sftp> exit
+	itiel@X550JX:~$
+
+
+# MUNTATGE RECURS SFTP
+----------------------
+
+Per muntar un recurs sftp de forma manual és necessari instal·lar un paquet adicional (sshfs), per exemple per muntar l'usuari previament creat:
+
+	itiel@X550JX:~$ sudo sshfs entel@192.168.56.102:/ test/
+	The authenticity of host '192.168.56.102 (192.168.56.102)' can't be established.
+	ECDSA key fingerprint is SHA256:Db6R4MvFo2ZnKue8YoriRJCRZPyliBmsPgSvyx5HnCM.
+	Are you sure you want to continue connecting (yes/no)? yes
+	entel@192.168.56.102's password: 
+	itiel@X550JX:~$ cd test/
+	itiel@X550JX:~/test$ ls
+	docs  public_html
+	itiel@X550JX:~/test$ cd ..
+	itiel@X550JX:~$
+
+Es pot muntar també amb certificat, de tal forma que es més segur i no es necessari introduir contrasenya:
+
+	itiel@X550JX:~$ sudo sshfs -o IdentityFile=/home/itiel/key entel@192.168.56.102:/ test/
+	itiel@X550JX:~$ ls test/
+	docs  public_html
+	itiel@X550JX:~$
+
+Per automuntar cada cop que s'encén l'equip, s'ha de configurar en /etc/fstab:
+
+	itiel@X550JX:~$ tail -n1 /etc/fstab
+	entel@192.168.56.102:/ /home/itiel/test fuse.sshfs defaults,idmap=user,reconnect,_netdev,users,IdentityFile=/home/itiel/.ssh/id_rsa 0 0
+	itiel@X550JX:~$
+	
+	On entel@192.168.56.102:/ és el directori a muntar, /home/itiel/test és on es muntarà, fuse.sshfs és el tipus de sistema de fitxers a fer sevir,
+	defaults,idmap=user,reconnect,_netdev,users,IdentityFile=/home/itiel/.ssh/id_rsa són els paràmetres a tenir en compte:
+
+	- idmap			-->	Munta la carpeta amb l'uid de l'usuari que ho executa.
+	- reconnect		-->	Reconecta amb el servidor si es perd la connexió.
+	- _netdev		-->	Preveu abans de muntar que hi hagi connexió.
+	- users			--> Permet a qualsevol usuari muntar i desmuntar.
+	- IdentityFile	--> Certificat privat que identifica a l'usuari.
+
+En aquest escenari, només tindrà accés l'usuari Itiel, ni tan sols l'usuari root pot accedir:
+
+	itiel@X550JX:~$ ls -l test/
+	total 0
+	itiel@X550JX:~$ mount test/
+	itiel@X550JX:~$ ls -l test/
+	total 8
+	drwxr-xr-x 1 itiel avahi-autoipd 4096 may  7 22:53 docs
+	drwxr-xr-x 1 itiel avahi-autoipd 4096 may  2 11:28 public_html
+	itiel@X550JX:~$ ls -l
+	total 196
+	.
+	.
+	.
+	drwxr-xr-x 1 itiel root   4096 may  2 11:28  test
+	.
+	.
+	.
+	itiel@X550JX:~$ sudo su
+	root@X550JX:/home/itiel# cd test 
+	bash: cd: test: Permiso denegado
+	root@X550JX:/home/itiel# ls -l
+	ls: no se puede acceder a 'test': Permiso denegado
+	total 192
+	.
+	.
+	.
+	d????????? ? ?     ?         ?            ?  test
+	.
+	.
+	.
+	root@X550JX:/home/itiel# ls -l test 
+	ls: no se puede acceder a 'test': Permiso denegado
+	root@X550JX:/home/itiel#
+
+	NOTA: La carpeta .ssh ha de tenir permisos 700, el certificat id_rsa 600 i l'id_rsa.pub 644.
+
+Comprovació del funcionament des d'un client connectant-se al protocol sftp port 22:
+
+	root@esclavo:~# tcpdump -i any -n dst host 192.168.56.104
+	tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+	listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+	18:57:39.571513 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [S.], seq 3233614797, ack 1665355091, win 28960, options [mss 1460,sackOK,TS val 1800605 ecr 4294944910,nop,wscale 6], length 0
+	18:57:39.572012 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [.], ack 41, win 453, options [nop,nop,TS val 1800605 ecr 4294944911], length 0
+	18:57:39.577673 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 1:40, ack 41, win 453, options [nop,nop,TS val 1800607 ecr 4294944911], length 39
+	18:57:39.578409 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 40:1120, ack 1473, win 498, options [nop,nop,TS val 1800607 ecr 4294944912], length 1080
+	18:57:39.585060 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 1120:1540, ack 1521, win 498, options [nop,nop,TS val 1800608 ecr 4294944913], length 420
+	18:57:41.644917 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [.], ack 1537, win 498, options [nop,nop,TS val 1801124 ecr 4294945419], length 0
+	18:57:41.645414 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [.], ack 1581, win 498, options [nop,nop,TS val 1801124 ecr 4294945429], length 0
+	18:57:41.645968 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 1540:1584, ack 1581, win 498, options [nop,nop,TS val 1801124 ecr 4294945429], length 44
+	18:57:41.650000 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 1584:1636, ack 1649, win 498, options [nop,nop,TS val 1801124 ecr 4294945429], length 52
+	18:57:43.985339 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 1636:1664, ack 1733, win 498, options [nop,nop,TS val 1801708 ecr 4294946011], length 28
+	18:57:44.020655 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 1664:2164, ack 1845, win 498, options [nop,nop,TS val 1801717 ecr 4294946015], length 500
+	18:57:44.061701 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 2164:2208, ack 1845, win 498, options [nop,nop,TS val 1801728 ecr 4294946034], length 44
+	18:57:44.063474 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 2208:2280, ack 1965, win 498, options [nop,nop,TS val 1801728 ecr 4294946034], length 72
+	18:57:44.066275 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 2280:2468, ack 2009, win 498, options [nop,nop,TS val 1801729 ecr 4294946034], length 188
+	18:57:44.068769 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 2468:2536, ack 2061, win 498, options [nop,nop,TS val 1801729 ecr 4294946035], length 68
+	18:57:44.284903 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 2468:2536, ack 2061, win 498, options [nop,nop,TS val 1801784 ecr 4294946035], length 68
+	18:57:56.582282 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 2536:2612, ack 2129, win 498, options [nop,nop,TS val 1804858 ecr 4294949165], length 76
+	18:57:59.702875 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 2612:2664, ack 2181, win 498, options [nop,nop,TS val 1805638 ecr 4294949946], length 52
+	18:57:59.703967 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 2664:3820, ack 2233, win 498, options [nop,nop,TS val 1805638 ecr 4294949946], length 1156
+	18:57:59.704776 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 3820:3888, ack 2285, win 498, options [nop,nop,TS val 1805638 ecr 4294949946], length 68
+	18:57:59.705417 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 3888:3956, ack 2337, win 498, options [nop,nop,TS val 1805639 ecr 4294949946], length 68
+	18:58:01.246679 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 3956:4032, ack 2389, win 498, options [nop,nop,TS val 1806024 ecr 4294950332], length 76
+	18:58:01.247727 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 4032:4108, ack 2441, win 498, options [nop,nop,TS val 1806024 ecr 4294950332], length 76
+	18:58:03.757117 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 4108:4176, ack 2509, win 498, options [nop,nop,TS val 1806651 ecr 4294950960], length 68
+	18:58:06.379013 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 4176:4212, ack 2545, win 498, options [nop,nop,TS val 1807307 ecr 4294951615], length 36
+	18:58:06.379382 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [P.], seq 4212:4300, ack 2545, win 498, options [nop,nop,TS val 1807307 ecr 4294951615], length 88
+	18:58:06.383394 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [.], ack 2642, win 498, options [nop,nop,TS val 1807308 ecr 4294951617], length 0
+	18:58:06.388595 IP 192.168.56.102.22 > 192.168.56.104.42266: Flags [F.], seq 4300, ack 2642, win 498, options [nop,nop,TS val 1807309 ecr 4294951617], length 0
+	^C
+	28 packets captured
+	28 packets received by filter
+	0 packets dropped by kernel
+	root@esclavo:~# 
+
+
+# COMPARTICIÓ D'UN RECURS SFTP
+------------------------------
+
+Per poder tenir un recurs compartit entre usuaris, s'hauria d'engabiar a un nivell on tots puguin veure les carpetes dels
+altres usuaris, però, no accedir-hi a aquestes, excepte la compartida, és a dir, en comptes d'engabiar a nivell del home
+absolut de l'usuari, es faría a un nivell més baix, és a dir, del /home quedant així:
+
+	root@esclavo:~# cat /etc/ssh/sshd_config 
+	.
+	.
+	.
+	Match Group filetransfer
+		ChrootDirectory /home
+		AllowTcpForwarding no
+		X11Forwarding no
+		ForceCommand internal-sftp
+	root@esclavo:~#
+
+
+# CONFIGURACIÓ SMB
+------------------
+
+Primer serà necessari crear un directori compartit que es farà servir entre usuaris samba:
+
+	root@esclavo:~# mkdir /samba
+	root@esclavo:~# chown :sambashare /samba/
+	root@esclavo:~#
+
+És important diferenciar els usuaris de sistema dels que utilitza samba, ja que no són iguals. Per crear un usuari de samba,
+en aquest cas es crearà l'usuari itielsmb:
+
+	root@esclavo:~# useradd -M -d /samba/itielsmb -s /usr/sbin/nologin -G sambashare itielsmb
+	root@esclavo:~#
+
+	- Paràmetre -M indica que no es vol crear el home automàticament.
+	- Paràmetre -d indica la ruta del home (s'ha de crear).
+	- Paràmetre -s indica la shell que farà servir.
+	- Paràmetre -G indica els grups als quals pertanyerà.
+
+	root@esclavo:/samba# mkdir itielsmb
+	root@esclavo:/samba# chown itielsmb:sambashare itielsmb/
+	root@esclavo:/samba# ls -l
+	total 4
+	drwxr-xr-x 2 itielsmb sambashare 4096 mai  8 00:37 itielsmb
+	root@esclavo:/samba#
+
+És necessari activar el bit de setgid per a què quan un altre usuari afegeixi un nou fitxer aquest mantingui el el grup
+sambashare:
+
+	root@esclavo:/samba# chmod 2770 itielsmb/
+	root@esclavo:/samba#
+
+Per establir claus als usuaris s'ha de fer amb una comanda de samba i també s'han d'activar els usuaris:
+
+	root@esclavo:/samba# smbpasswd -a itielsmb
+	New SMB password:
+	Retype new SMB password:
+	Added user itielsmb.
+	root@esclavo:/samba# smbpasswd -e itielsmb
+	Enabled user itielsmb.
+	root@esclavo:/samba#
+
+
+# COMPARTICIÓ RECURSOS SMB
+--------------------------
+
+És important establir els permisos en 2770 (rwx rws ---) per poder mantindre el grup sambashare després de realitzar
+canvis.
+Per poder compartir recursos i ser visibles de cara als altres usuaris, s'ha d'especificar uns certs paràmetres en
+el fitxer de configuració de l'smb (/etc/samba/smb.conf):
+
+	root@esclavo:/samba# tail -n 15 /etc/samba/smb.conf 
+	[users]
+		path = /samba/users
+		browseable = yes
+		read only = no
+		force create mode = 0660
+		force directory mode = 2770
+		valid users = @sambashare @sadmin
+
+	[itielsmb]
+		path = /samba/itielsmb
+		browseable = no
+		read only = no
+		force create mode = 0660
+		force directory mode = 2770
+		valid users = itiel @sadmin
+	root@esclavo:/samba#
+
+On	-[<nom_recurs>] és el nom que es veurà quan es connecta l'usuari.
+	- Path és la ruta de la carpeta compartida. 
+	- Browseable vol dir que si pot ser trobada en la llista.
+	- Read only vol dir que si poden escriure o no els usuaris vàlids.
+	- Force create mode obliga a tenir els permissos indicats als fitxers nous (sería un equivalent a umask).
+	- Force directory mode és igual que l'anterior però amb directoris.
+	- Valid users indica els usuaris que tenen el permís d'accedir-hi al recurs compartit. Els grups s'indiquen amb @.
+
+Cada cop que s'estableix un nou recurs compartit en la xarxa smb, s'ha de reinicialitzar el dimoni per a que
+torni a carregar el fitxer de configuració:
+
+	root@esclavo:/samba# systemctl restart nmbd
+	root@esclavo:/samba#
+
+
+# CLIENT I MUNTATGE SMB
+-----------------------
+
+Des del terminal es pot connectar amb el paquet smbclient especificat en el programari necessari:
+
+	itiel@X550JX:~$ smbclient //192.168.56.102/itielsmb -U itielsmb
+	Enter WORKGROUP\itielsmb's password: 
+	Try "help" to get a list of possible commands.
+	smb: \>
+	itiel@X550JX:~$
+
+També es pot muntar des de l'entorn gràfic d'Ubuntu, en aquest cas, s'ha fet servir la versió 18.04 LTS. Per connectar-se
+s'ha d'obrir el gestor d'arxius i en el panell esquerre en "altres ubicacions" permet connectar-se a un servidor.
+S'especificarà el protocol smb://x.x.x.x seguit de l'ip del servidor:
+
+	smb://192.168.56.102
+
+A continuació demanarà l'usuari, contrasenya i domini. Un cop validat, es mostrarà els recursos compartits.
+
+Un altre forma de muntar el sistema de fitxers, és, en comptes de fer servir directament el protocol o bé l'entorn gràfic,
+es pot incloure al sistema de fitxers que s'està fent servir com si d'una carpeta més es tractés, i per tant, es pot gestionar mitjançant
+el terminal. Amb el mode gràfic s'aconsegueix el mateix efecte, però d'aquesta forma es guanya que es pot muntar des del terminal,
+i com a conseqüència, també es podrà automàticament fent servir l'fstab.
+
+Es necessari instal·lar el paquet cifs-utils.
+
+Un cop instal·lat, per muntar el sistema de fitxers, amb la comanda mount i especificant el tipus:
+
+	itiel@X550JX:~$ sudo mount -v -t cifs //192.168.56.102/users/ /home/itiel/test -o username=itielsmb,password=asd,domain=WORKGROUP,iocharset=utf8,rw,uid=itiel,gid=itiel
+	mount.cifs kernel mount options: ip=192.168.56.102,unc=\\192.168.56.102\users,iocharset=utf8,uid=1000,gid=1000,user=itielsmb,domain=WORKGROUP,pass=********
+	itiel@X550JX:~$	
+	
+	itiel@X550JX:~$ df -h
+	S.ficheros             Tamaño Usados  Disp Uso% Montado en
+	.
+	.
+	.
+	//192.168.56.102/users   1,8G   1,5G  262M  86% /home/itiel/test
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ ls -l | grep test
+	drwxr-xr-x 2 itiel itiel     0 may  8 01:35 test
+	itiel@X550JX:~$
+
+	itiel@X550JX:~/test$ touch myfile
+	itiel@X550JX:~/test$ ls -l
+	total 0
+	drwxr-xr-x 2 itiel itiel 0 may  8 01:04 hello
+	-rwxr-xr-x 1 itiel itiel 0 may  8 01:37 myfile
+	itiel@X550JX:~/test$
+
+Es pot automatitzar aquest procés en /etc/fstab com s'havia fet amb l'sftp. Primer que tot es crearà el fitxer amb les credencials necessaries i es protegiran:
+
+	itiel@X550JX:~$ nano cifs.credentials
+	itiel@X550JX:~$ chmod 600 cifs.credentials 
+	itiel@X550JX:~$ ls -l | grep cifs.credentials
+	-rw------- 1 root root      31 mai  8 01:43 cifs.credentials
+	itiel@X550JX:~$ cat cifs.credentials 
+	username=itielsmb
+	password=asd
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ tail -n1 /etc/fstab 
+	//192.168.56.102/users /home/itiel/test cifs defaults,credentials=/etc/cifs.credentials,_netdev,users,uid=itiel,gid=itiel 0 0
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ sudo mount test/
+	itiel@X550JX:~$ ls -l | grep test
+	drwxr-xr-x 2 itiel itiel     0 may  8 01:37  test
+	itiel@X550JX:~$ ls -l test/
+	total 0
+	drwxr-xr-x 2 itiel itiel 0 may  8 01:04 hello
+	-rwxr-xr-x 1 itiel itiel 0 may  8 01:37 myfile
+	itiel@X550JX:~$
+
+Comprovació del funcionament de smb en el port 445:
+
+	root@esclavo:~# tcpdump -i any port 445
+	tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+	listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+	18:43:19.856824 IP X550JX.36116 > 192.168.56.102.microsoft-ds: Flags [S], seq 425997339, win 29200, options [mss 1460,sackOK,TS val 3234584130 ecr 0,nop,wscale 7], length 0
+	18:43:19.856877 IP 192.168.56.102.microsoft-ds > X550JX.36116: Flags [S.], seq 859842463, ack 425997340, win 28960, options [mss 1460,sackOK,TS val 1585676 ecr 3234584130,nop,wscale 6], length 0
+	18:43:19.857029 IP X550JX.36116 > 192.168.56.102.microsoft-ds: Flags [.], ack 1, win 229, options [nop,nop,TS val 3234584130 ecr 1585676], length 0
+	18:43:19.857054 IP X550JX.36116 > 192.168.56.102.microsoft-ds: Flags [P.], seq 1:217, ack 1, win 229, options [nop,nop,TS val 3234584130 ecr 1585676], length 216 SMB PACKET: SMBnegprot (REQUEST)
+
+	18:43:19.857063 IP 192.168.56.102.microsoft-ds > X550JX.36116: Flags [.], ack 217, win 470, options [nop,nop,TS val 1585677 ecr 3234584130], length 0
+	18:43:19.862993 IP 192.168.56.102.microsoft-ds > X550JX.36116: Flags [P.], seq 1:207, ack 217, win 470, options [nop,nop,TS val 1585678 ecr 3234584130], length 206 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:19.863086 IP X550JX.36116 > 192.168.56.102.microsoft-ds: Flags [.], ack 207, win 237, options [nop,nop,TS val 3234584136 ecr 1585678], length 0
+	18:43:19.870805 IP 192.168.56.102.microsoft-ds > X550JX.36116: Flags [F.], seq 479, ack 404, win 486, options [nop,nop,TS val 1585680 ecr 3234584138], length 0
+	18:43:19.870896 IP X550JX.36116 > 192.168.56.102.microsoft-ds: Flags [.], ack 480, win 245, options [nop,nop,TS val 3234584144 ecr 1585680], length 0
+	18:43:37.557008 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [S], seq 1195233459, win 29200, options [mss 1460,sackOK,TS val 3234601830 ecr 0,nop,wscale 7], length 0
+	18:43:37.557071 IP 192.168.56.102.microsoft-ds > X550JX.36118: Flags [S.], seq 2750520387, ack 1195233460, win 28960, options [mss 1460,sackOK,TS val 1590102 ecr 3234601830,nop,wscale 6], length 0
+	18:43:37.557287 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [.], ack 1, win 229, options [nop,nop,TS val 3234601830 ecr 1590102], length 0
+	18:43:37.557313 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [P.], seq 1:217, ack 1, win 229, options [nop,nop,TS val 3234601830 ecr 1590102], length 216 SMB PACKET: SMBnegprot (REQUEST)
+
+	18:43:37.557322 IP 192.168.56.102.microsoft-ds > X550JX.36118: Flags [.], ack 217, win 470, options [nop,nop,TS val 1590102 ecr 3234601830], length 0
+	18:43:37.568676 IP 192.168.56.102.microsoft-ds > X550JX.36118: Flags [P.], seq 1:207, ack 217, win 470, options [nop,nop,TS val 1590104 ecr 3234601830], length 206 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:37.568803 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [.], ack 207, win 237, options [nop,nop,TS val 3234601842 ecr 1590104], length 0
+	18:43:37.568998 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [P.], seq 217:403, ack 207, win 237, options [nop,nop,TS val 3234601842 ecr 1590104], length 186 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:37.571912 IP 192.168.56.102.microsoft-ds > X550JX.36118: Flags [P.], seq 207:479, ack 403, win 486, options [nop,nop,TS val 1590105 ecr 3234601842], length 272 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:37.574247 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [P.], seq 403:569, ack 479, win 245, options [nop,nop,TS val 3234601847 ecr 1590105], length 166 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:37.576500 IP 192.168.56.102.microsoft-ds > X550JX.36118: Flags [P.], seq 479:720, ack 569, win 503, options [nop,nop,TS val 1590106 ecr 3234601847], length 241 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:37.579348 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [P.], seq 569:1101, ack 720, win 254, options [nop,nop,TS val 3234601852 ecr 1590106], length 532 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:37.580460 IP 192.168.56.102.microsoft-ds > X550JX.36118: Flags [P.], seq 720:797, ack 1101, win 520, options [nop,nop,TS val 1590107 ecr 3234601852], length 77 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:37.580643 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [F.], seq 1101, ack 797, win 254, options [nop,nop,TS val 3234601853 ecr 1590107], length 0
+	18:43:37.585485 IP 192.168.56.102.microsoft-ds > X550JX.36118: Flags [F.], seq 797, ack 1102, win 520, options [nop,nop,TS val 1590109 ecr 3234601853], length 0
+	18:43:37.585559 IP X550JX.36118 > 192.168.56.102.microsoft-ds: Flags [.], ack 798, win 254, options [nop,nop,TS val 3234601858 ecr 1590109], length 0
+	18:43:44.998930 IP X550JX.36126 > 192.168.56.102.microsoft-ds: Flags [S], seq 3998321570, win 29200, options [mss 1460,sackOK,TS val 3234609272 ecr 0,nop,wscale 7], length 0
+	18:43:44.998988 IP 192.168.56.102.microsoft-ds > X550JX.36126: Flags [S.], seq 2983410699, ack 3998321571, win 28960, options [mss 1460,sackOK,TS val 1591962 ecr 3234609272,nop,wscale 6], length 0
+	18:43:44.999175 IP X550JX.36126 > 192.168.56.102.microsoft-ds: Flags [.], ack 1, win 229, options [nop,nop,TS val 3234609272 ecr 1591962], length 0
+	18:43:44.999203 IP X550JX.36126 > 192.168.56.102.microsoft-ds: Flags [P.], seq 1:217, ack 1, win 229, options [nop,nop,TS val 3234609272 ecr 1591962], length 216 SMB PACKET: SMBnegprot (REQUEST)
+
+	18:43:44.999213 IP 192.168.56.102.microsoft-ds > X550JX.36126: Flags [.], ack 217, win 470, options [nop,nop,TS val 1591962 ecr 3234609272], length 0
+	18:43:45.005831 IP 192.168.56.102.microsoft-ds > X550JX.36126: Flags [P.], seq 1:207, ack 217, win 470, options [nop,nop,TS val 1591964 ecr 3234609272], length 206 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:45.005903 IP X550JX.36126 > 192.168.56.102.microsoft-ds: Flags [.], ack 207, win 237, options [nop,nop,TS val 3234609279 ecr 1591964], length 0
+	18:43:45.005981 IP X550JX.36126 > 192.168.56.102.microsoft-ds: Flags [P.], seq 217:403, ack 207, win 237, options [nop,nop,TS val 3234609279 ecr 1591964], length 186 SMB-over-TCP packet:(raw data or continuation?)
+	.
+	.
+	.
+	18:43:54.876805 IP X550JX.36126 > 192.168.56.102.microsoft-ds: Flags [P.], seq 10176:10268, ack 13161, win 790, options [nop,nop,TS val 3234619150 ecr 1594431], length 92 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:54.877073 IP 192.168.56.102.microsoft-ds > X550JX.36126: Flags [P.], seq 13161:13289, ack 10268, win 771, options [nop,nop,TS val 1594432 ecr 3234619150], length 128 SMB-over-TCP packet:(raw data or continuation?)
+
+	18:43:54.917483 IP X550JX.36126 > 192.168.56.102.microsoft-ds: Flags [.], ack 13289, win 798, options [nop,nop,TS val 3234619190 ecr 1594432], length 0
+	^C
+	209 packets captured
+	212 packets received by filter
+	3 packets dropped by kernel
+	root@esclavo:~# 
+ 
+
+# SEGURETAT
+-----------
+
+Es dedueix que la política per defecte es drop en input, les altres no perquè no és un router.
+
+Per securitzar l'sftp, que en realitat es tracta del protocol SSH, amb capa de transport TCP pel port 22 (per defecte). 
+Per habilitar les connexions entrants sense estat, es pot fer amb aquestes filter rule:
+	
+	$ iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+	# $ iptables -A OUPUT -p tcp --sport -j ACCEPT
+
+Si es vol simplificar amb estats per a permetre només aquells paquets de sortida on estan lligats a una connexió oberta:
+
+	$ iptables -A INPUT -p tcp --dport 22 -m state --state NEW,ESTABLISHED -j ACCEPT
+	# $ iptables -A OUTPUT -p tcp --sport 22 -m state --state ESTABLISHED -j ACCEPT
+
+	NOTA: Les regles OUTPUT no són necessaries amb les deduccions que s'han fet per a aquest escenari.
+
+
+Basant-se en la pràctica 2 en la sessió evaluable, com no és un router i es dedueix que el samba serà només per als equips interns
+de la xarxa 10.10.4.0/28 i amb destinació el NAS amb ip 10.10.4.4, la política per defecte d'OUTPUT serà ACCEPT:
+
+	$ iptables -A INPUT -p udp -m udp -d 10.10.4.4 -s 10.10.4.0/28 --dport 137 -j ACCEPT
+	$ iptables-A INPUT -p udp -m udp -d 10.10.4.4 -s 10.10.4.0/28 --dport 138 -j ACCEPT
+	$ iptables -A INPUT -m state --state NEW -m tcp -p tcp -d 10.10.4.4 -s 10.10.4.0/28 --dport 139 -j ACCEPT
+	$ iptables -A INPUT -m state --state NEW -m tcp -p tcp -d 10.10.4.4 -s 10.10.4.0/28 --dport 445 -j ACCEPT
+
+	root@esclavo:~# iptables -L -n
+	Chain INPUT (policy DROP)
+	target     prot opt source               destination         
+	ACCEPT     tcp  --  0.0.0.0/0            0.0.0.0/0            tcp dpt:22 state NEW,ESTABLISHED
+	ACCEPT     udp  --  10.10.4.0/28         10.10.4.4            udp dpt:137
+	ACCEPT     tcp  --  10.10.4.0/28         10.10.4.4            state NEW tcp dpt:139
+	ACCEPT     tcp  --  10.10.4.0/28         10.10.4.4            state NEW tcp dpt:445
+
+	Chain FORWARD (policy ACCEPT)
+	target     prot opt source               destination         
+
+	Chain OUTPUT (policy ACCEPT)
+	target     prot opt source               destination         
+	root@esclavo:~#
+
+
+# BACKUPS
+---------
+
+Les copies es fan en la mateixa màquina. Tindría més sentit fer-ho en el raid que serà la pròxima sessió.
+
+Per fer servir l'eina borgbackup, primer s'ha de crear un repositori. En aquest escenari s'ha fet tot en la mateixa màquina:
+
+	root@esclavo:/backups# borg init --encryption=repokey /backups/repository
+	Enter new passphrase: 
+	Enter same passphrase again: 
+	Do you want your passphrase to be displayed for verification? [yN]: y
+	Your passphrase (between double-quotes): "asd"
+	Make sure the passphrase displayed above is exactly what you wanted.
+
+	By default repositories initialized with this version will produce security
+	errors if written to with an older version (up to and including Borg 1.0.8).
+
+	If you want to use these older versions, you can disable the check by runnning:
+	borg upgrade --disable-tam '/backups/repository'
+
+	See https://borgbackup.readthedocs.io/en/stable/changes.html#pre-1-0-9-manifest-spoofing-vulnerability for details about the security implications.
+	root@esclavo:/backups#
+
+El programa ha creat una estructura de carpetes:
+
+	root@esclavo:/backups# ls -l
+	total 4
+	drwx------ 3 root root 4096 mai  8 02:29 repository
+	root@esclavo:/backups# cd repository/
+	root@esclavo:/backups/repository# ls
+	config	data  hints.0  index.0	README
+	root@esclavo:/backups/repository# 
+
+Per crear un nou backup, per exemple, del directori /home, s'ha d'indicar on està el repositori i amb quin nom es vol emmagatzemar la copia de seguretat:
+	
+	root@esclavo:/backups/repository# borg create /backups/repository::seax.backup1 /home/
+	Enter passphrase for key /backups/repository: 
+	root@esclavo:/backups/repository
+
+A més es poden crear backups amb compressió, des de més lleugeres (més ràpides però amb factor de compressió més baix) a més potents (per defecte es fa servir lz4):
+
+	$ borg create --compression <compressió>,<N> <repositori>::<nom_arxiu> <path_a_fer_backup>
+	
+	Compressió pot ser zlib, lzma o lz4. També es pot indicar que no es vol compressió (none).
+	N és el nivell de compressió desitjat en un rang de menor a major on els valors van de 0 fins a 9, ambdos inclosos.
+
+Es pot veure els backups realitzats al repositori i el contiguts d'aquestos:
+
+	root@esclavo:~# borg list /backups/repository/
+	Enter passphrase for key /backups/repository: 
+	seax.backup1                         Wed, 2019-05-08 02:34:01
+	seax.backup2                         Wed, 2019-05-08 02:36:09
+	root@esclavo:~#
+
+	root@esclavo:~# borg list /backups/repository::seax.backup1
+	Enter passphrase for key /backups/repository: 
+	drwxr-xr-x root   root          0 Tue, 2019-05-07 23:54:35 home
+	drwxr-xr-x root   root          0 Tue, 2019-05-07 23:55:37 home/entel
+	-rw------- entel  entel       168 Wed, 2019-05-08 00:08:58 home/entel/.bash_history
+	-rw-r--r-- entel  entel       220 Thu, 2019-02-14 18:49:01 home/entel/.bash_logout
+	-rw-r--r-- entel  entel      3526 Thu, 2019-02-14 18:49:01 home/entel/.bashrc
+	-rw-r--r-- entel  entel       675 Thu, 2019-02-14 18:49:01 home/entel/.profile
+	drwx------ entel  entel         0 Tue, 2019-05-07 22:35:02 home/entel/.ssh
+	-rw------- entel  entel       394 Tue, 2019-05-07 22:35:02 home/entel/.ssh/authorized_keys
+	lrwxrwxrwx root   filetransfer        0 Tue, 2019-05-07 23:55:37 home/entel/compartit -> ../shared
+	drwxr-xr-x entel  filetransfer        0 Wed, 2019-05-08 00:08:46 home/entel/docs
+	drwxr-xr-x entel  entel         0 Wed, 2019-05-08 00:08:46 home/entel/docs/carpeta
+	drwxr-xr-x entel  filetransfer        0 Thu, 2019-05-02 11:28:49 home/entel/public_html
+	drwxr-xr-x root   root          0 Wed, 2019-05-08 00:07:48 home/itiel
+	-rw------- itiel  itiel       253 Tue, 2019-05-07 23:40:58 home/itiel/.bash_history
+	-rw-r--r-- itiel  itiel       220 Sun, 2019-02-17 13:40:03 home/itiel/.bash_logout
+	-rw-r--r-- itiel  itiel      3526 Sun, 2019-02-17 13:40:03 home/itiel/.bashrc
+	-rw-r--r-- itiel  itiel       675 Sun, 2019-02-17 13:40:03 home/itiel/.profile
+	drwxr-xr-x itiel  itiel         0 Mon, 2019-05-06 23:14:52 home/itiel/.ssh
+	-rw-r--r-- itiel  itiel         0 Mon, 2019-05-06 23:14:52 home/itiel/.ssh/authorized_keys
+	lrwxrwxrwx itiel  filetransfer        0 Tue, 2019-05-07 23:59:09 home/itiel/compartit -> /home/shared/
+	drwxr-xr-x itiel  filetransfer        0 Tue, 2019-05-07 23:38:14 home/itiel/docs
+	drwxr-xr-x itiel  filetransfer        0 Tue, 2019-05-07 23:37:30 home/itiel/folder
+	drwxr-xr-x itiel  filetransfer        0 Wed, 2019-05-08 00:09:35 home/itiel/public_html
+	lrwxrwxrwx root   root          0 Wed, 2019-05-08 00:09:35 home/itiel/public_html/testing -> /home/entel/docs/carpeta/
+	lrwxrwxrwx itiel  filetransfer        0 Wed, 2019-05-08 00:07:48 home/itiel/testing -> /home/entel
+	drwxr-xr-x itiel2 itiel2        0 Sun, 2019-02-17 13:53:21 home/itiel2
+	-rw-r--r-- itiel2 itiel2      220 Sun, 2019-02-17 13:53:21 home/itiel2/.bash_logout
+	-rw-r--r-- itiel2 itiel2     3526 Sun, 2019-02-17 13:53:21 home/itiel2/.bashrc
+	-rw-r--r-- itiel2 itiel2      675 Sun, 2019-02-17 13:53:21 home/itiel2/.profile
+	drwx------ root   root          0 Thu, 2019-02-14 18:41:16 home/lost+found
+	drwxr-xr-x paquito paquito        0 Tue, 2019-05-07 23:47:07 home/paquito
+	-rw------- paquito paquito        5 Tue, 2019-05-07 23:47:07 home/paquito/.bash_history
+	-rw-r--r-- paquito paquito      220 Mon, 2019-05-06 17:17:49 home/paquito/.bash_logout
+	-rw-r--r-- paquito paquito     3526 Mon, 2019-05-06 17:17:49 home/paquito/.bashrc
+	-rw-r--r-- paquito paquito      675 Mon, 2019-05-06 17:17:49 home/paquito/.profile
+	drwxrwxr-x itiel  filetransfer        0 Wed, 2019-05-08 00:04:11 home/shared
+	lrwxrwxrwx root   root          0 Wed, 2019-05-08 00:04:11 home/shared/shared -> /home/shared/
+	root@esclavo:~#
+
+	root@esclavo:~# borg list /backups/repository::seax.backup2
+	Enter passphrase for key /backups/repository: 
+	.
+	.
+	.
+	-rw-r--r-- root   root          0 Wed, 2019-05-08 02:36:03 home/file
+	.
+	.
+	.
+	root@esclavo:~#
+
+Per restaurar una copia de seguretat es pot fer mitjantçant:
+
+	root@esclavo:~# borg extract /backups/repository::seax.backup1
+	Enter passphrase for key /backups/repository: 
+	root@esclavo:~#
+
+Per esborrar un backup que ja no es necessari:
+
+	root@esclavo:/backups# borg delete repository::seax.backup1
+	Enter passphrase for key /backups/repository: 
+	root@esclavo:/backups# borg list /backups/repository/
+	Enter passphrase for key /backups/repository: 
+	seax.backup2                         Wed, 2019-05-08 02:36:09
+	root@esclavo:/backups#
+
+	NOTA: Si s'esborra un backup del qual depen un incremental, aquest no restaurarà correctament.
+
+El mateix efecte es pot aconseguir amb rsync. És una eina molt potent que aprofitant els paràmetres adients es poden fer
+backups incrementals i també de tipus snapshot. Un script que vaig fer per a l'assignatura ADSO:
+
+	#!/bin/bash
+	SOURCE_DIR="/home"
+	DEST_DIR="/backups/backups-rsync"
+	# excludes file: list of files to exclude
+	EXCLUDES="/root/excludes.txt"
+	# the name of the backup machine
+	BSERVER="localhost"
+	# the name of the incremental backups directory
+	# put a date command for: year month day hour minute second
+	BACKUP_DATE=`date +%y%m%d-%H%M%S` # options for rsync
+	OPTS="--ignore-errors --delete-excluded --exclude-from=$EXCLUDES --delete --backup --backup-dir=$DEST_DIR/$BACKUP_DATE -av"
+	# now the actual transfer
+	#rsync $OPTS $SOURCE_DIR root@$BSERVER:$DEST_DIR/complet
+	rsync $OPTS $SOURCE_DIR $DEST_DIR/complet
+
+Comprovació de la comanda executant l'script:
+
+	root@esclavo:~# ./rsync-script.sh 
+	sending incremental file list
+	created directory /backups/backups-rsync/complet
+	(new) backup_dir is /backups/backups-rsync/190508-173635
+	home/
+	home/entel/
+	home/entel/.bash_history
+	home/entel/.bash_logout
+	home/entel/.bashrc
+	home/entel/.profile
+	home/entel/compartit -> ../shared
+	home/entel/.ssh/
+	home/entel/.ssh/authorized_keys
+	home/entel/docs/
+	home/entel/docs/carpeta/
+	home/entel/public_html/
+	home/itiel/
+	home/itiel/.bash_history
+	home/itiel/.bash_logout
+	home/itiel/.bashrc
+	home/itiel/.profile
+	home/itiel/compartit -> /home/shared/
+	home/itiel/testing -> /home/entel
+	home/itiel/.ssh/
+	home/itiel/.ssh/authorized_keys
+	home/itiel/docs/
+	home/itiel/folder/
+	home/itiel/public_html/
+	home/itiel/public_html/testing -> /home/entel/docs/carpeta/
+	home/itiel2/
+	home/itiel2/.bash_logout
+	home/itiel2/.bashrc
+	home/itiel2/.profile
+	home/lost+found/
+	home/paquito/
+	home/paquito/.bash_history
+	home/paquito/.bash_logout
+	home/paquito/.bashrc
+	home/paquito/.profile
+	home/shared/
+	home/shared/shared -> /home/shared/
+
+	sent 20,583 bytes  received 532 bytes  42,230.00 bytes/sec
+	total size is 18,575  speedup is 0.88
+	root@esclavo:~#
+
+
+# AUTOMATITZACIÓ AMB CRON
+-------------------------
+
+* * * * * comanda a executar
+- - - - -
+| | | | |
+| | | | +----- dia de la setmana (0 -6) (diumenge =0)
+| | | +------- mes (1 -12)
+| | +--------- dia del mes (1 -31)
+| +----------- hora (0 -23)
++------------- minut (0 -59)
+
+Per editar el nostre crontab només és necessari executar:
+
+	$ crontab -e
+
+Si és la primera vegada que s'executa, es veurà un arxiu en l'editor vi (o nano) amb una línia comentada. Per exemple, amb aquesta tasca:
+        
+	30 16 * * * rm /home/itiel/tmp/*
+
+Aquesta línia indica que el contingut del directori /home/itiel/tmp/ serà esborrat tots els dies a les 16:30 PM.
+
+Per saber les tasques que té el cron:
+
+	$ crontab -l
+
+L'opció -r remou l'arxiu crontab de l'usuari. 
+
+	$ crontab -r
+
+Típicament, el cron envia un email de notificació a l'usuari propietari del cron, això pot arribar a ser molest, sobretot si es té un cron que s'executa amb molta freqüència.
+Per deshabilitar l'enviament de l'email s'ha de redirigir cap a >/dev/null 2>&1.
+
+En aquest cas es podría automatitzar periodicament els scripts per fer backups.
+
+Cada usuari del sistema posseeix un crontab personalitzat i només el root pot modificar el crontab d'un altre usuari. Si es desitja agregar un crontab és necessari primer 
+fer login com aquest usuari.
+Un usuari només pot fer ús de crontab si el seu nom apareix al fitxer /etc/cron.allow. Si l'arxiu no existeix l'usuari pot usar crontab llevat que el seu nom aparegui en /etc/cron.deny.

@@ -1,0 +1,37 @@
+Pràctica 2 - Sessió 1 - Implementar un servei DNS
+
+Pràctica 2 - Implementar un servei DNS
+
+1- Configurar un servei de DNS.
+    - Es defineixen un domini principal "seax.edu" i un subdomini "classe.seax.edu".
+    - Cada domini/subdomini té un servidor màster propi i un slave.
+    - Cal configurar les zones directes i inverses.
+    - Cal permetre la recursivitat només a les xarxes pròpies, oferir la funcionalitat de memòria cau (caché)  i no utilitzar forwarders per resoldre les consultes.
+
+    - Cal verificar el funcionament dels dominis i de la memòria cau per a resoldre consultes que no pertanyin als dominis 
+    - (opcional) Investigueu i comenteu s'hi ha algun mecanisme que per implementar un mecanisme per coordinar el DNS i el DHCP, en un mateix servidor.
+
+2- Programar un script que obtingui la següent informació d'un domini.
+    - Adreça de correu de l'administrador del domini.
+    - Noms i adreces dels servidors de noms indicant quin és el màster.
+    - Noms dels servidors de correu.
+    - Informació complementària d'interès.
+   
+3- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p8_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p5_cognom1_nom.zip.
+
+[*] - Quines màquines i adreces IP tenen el domini i subdomini? (treballeu amb adreces privades)
+[*] - Cal instal·lar algun paquet de software?
+[*] - Com es configura un servidor per ser màster (o esclau) d'un domini? I per utilitzar la funció de memòria cau?
+[*] - Com es pot verificar que un servidor fa d'esclau d'un altre?
+[*] - Com es delega un subdomini?
+[*] - Com es configura una zona en un servidor (directes i inverses)?
+[*] - Com es controla l'acceptació de peticions recursives?
+[*] - Com es comprova la sintaxis d'un fitxer de zona?
+[*] - Com es comprova que un servidor funciona correctament?
+[*] - Relacionat amb l'anterior, quines eines de consola hi ha per fer aquest comprovació?
+     Com s'han d'utilitzar?
+[*] - Com es verifica que el domini funciona correctament? I la memòria cau?
+[*] - Com fer que un servidor de DNS resolgui peticions de dominis pels que no és màster/esclau?
+[] - (opcional) Com es pot coordinar en un mateix servidor el DNS i el DHCP?

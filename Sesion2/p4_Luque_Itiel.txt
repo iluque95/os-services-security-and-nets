@@ -1,0 +1,65 @@
+Pràctica 2 - Avaluació
+
+
+Es vol construir un escenari com el descrit a "Pràctica 2 - Sessió 3 i 4 - Encaminament i tallafocs".	
+
+Tots els equips que formen part de l'escenari estaran basats en la màquina virtualitzada que es pot descarregar des del següent enllaç 
+
+https://cloud.catac.upc.edu/owncloud/index.php/s/0g0bfUvOgONepQ6
+
+L'escenari i els equips que el composen s’hauran de configurar per ajustar-se d'acord amb els següents requeriments:
+
+	- El nom dels equips i de les seves interfícies seran els indicats a l'enunciat de la sessió 3 i 4 (encaminament i tallafocs). En el cas del nom caldrà afegir el domini "seax.edu".
+
+	- Els serveis (DNS, DHCP i SSH) estaran ubicats a les màquines indicades a l'enunciat de la sessió 3 i 4.
+
+	- L'adreçament i polítiques de seguretat seran les indicades a l'enunciat de la sessió 3 i 4. 
+
+	- Hi haurà dos dominis "seax.edu" i "server.seax.edu", domini delegat de l'anterior. Hi haurà un únic domini invers per tot l'escenari
+
+	- Els tres dominis tindran com servidors màster i esclau a les màquines anomenades "DNS1" i "DNS2".
+
+	- Al domini "seax.edu" hi han d'aparéixer totes les màquines de l'escenari, routers i monitors inclosos, llevat del monitor de la xarxa de servidors. A més pels servidors "DNS1" i "DNS2" se'ls crearà uns àlias anomenats "ssh1" i "ssh2", respectívament.
+
+	- Al domini "server.seax.edu" es correpon amb la xarxa de servidors. Els declararan dues màquines: "nas.server.seax.edu" i "monitor.server.seax.edu".
+
+	- Tots els equips de l'escenari han de fer servir com a servidors de DNS "DNS1" i "DNS2". 
+
+	- "DNS1" i "DNS2" han de contestar qualsevol petició recursiva que els arribi de qualsevol màquina que formi part de les xarxes DMZ, servidors, clients i d'administració. 
+
+	- Els servidors DNS contestaran les consultes provinents de les xarxes DMZ, clients, servidors i d'aministració amb adreces privades i les que vinguin d'Internet (xarxa troncal) amb adreces públiques (Nota: cada máquina visible a Internet hauria de tenir dos IPs públiques, que us podeu inventar. Correspondrien, amb les adreces de la interfície que connecta amb la xarxa troncal de cada router)
+
+	- Els equips "Router d'accés I" i "Router d'accés II" han d'estar configurats de manera que sí arriba una petició de DNS o SSH des d'Internet, aquesta es redirgeixi amb la mateixa probabilitat als servidors "DNS1" i "DNS2.
+
+	- Els dos servidors de DHCP faran les reserves pertinents per a les IPs dels servidors i els monitors. A part, han de servir un pool d'IPs lliures per a la resta d'equips que puguin aparéixer.
+
+	- (opcional) Utilitzeu DDNS per actualitzar el servidor de DDNS si apareix algun equip que faci servir aquest pool.
+
+Cada equip contindrà 3 scripts:
+
+	- Cal Programar un script "dns.sh" amb bash que proporcioni informació sobre un domini en un fitxer de sortida "domini.txt", segons especificacions de la sessió 1 (DNS).
+
+	- Cal programar un script "dhcp.sh" amb bash que proporcioni informació sobre els servidors DHCP existents a la xarxa en un fitxer de sortida "dhcp_servers.txt", segons especificacions de la sessió 2 (DHCP).
+
+	- Cal programar un script "firewall.sh" amb bash que proporcioni informació sobre els intents d'atac en un fitxer de sortida "fw_warning.txt", segons especificacions de les sessions 3 i 4 (encaminament i tallafocs).
+
+Es lliurarà el següent material:
+
+	- Informe de la pràctica, amb el nom "informe.txt", per Atenea. Ha de seguir les directrius (estructura, contingut i format d'informe) comentades a classe i Atenea.
+
+	- Els 3 scripts de la pràctica per Atenea.
+
+	- Els fitxers que s'hagin creat necessaris per al funcionament de l'equip per Atenea
+
+	- Les màquines virtuals, dels 3 routers i dels dos servidors de DNS i SSH amb els scripts informe i fitxers al directori de l’usuari root.
+
+
+Nota: la VM que farà de monitor la posarà el professor. No cal que la pugeu al cloud.
+
+La valoració de la pràctica seguirà els següents criteris.
+
+	- A títol orientatiu, el resultat de la pràctica cal que doni resposta a les qüestions plantejades en cada sessió a Atenea.
+
+	- Es valorarà que l'escenari funcioni d'acord al que s'ha definit (serveis, connectivitat, tallafocs) [5-10] o no [0-5).
+
+	- En l'informe i scripts es valoraran la claredat de les explicacions i l'eficiència de la implementació.

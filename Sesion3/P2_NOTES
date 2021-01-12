@@ -1,0 +1,6 @@
+- Raid 0 --> Suma la capacidad de los discos. (Más velocidad, capacidad. No hay seguridad). * 2 discos *
+- Raid 1 --> Espejo. Redundancia de datos. (Menos velocidad, misma capacidad. Hay seguridad). * 2 discos *
+- Raid 10 --> Combinación de los dos anteriores. (Se aumenta velocidad y se aumenta la fiabilidad). * 4 discos 
+- Raid 5 --> * n discos de información, 1 de paridad *
+- Raid 6 --> * n discos de información, 2 de paridad *
+- Raid Z --> * n

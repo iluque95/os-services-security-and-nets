@@ -1,0 +1,252 @@
+Pràctica Opcional - Analitzar xarxes wifi i clients associats. (Luque Díaz Itiel)
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* aircrack-ng (apt-get install aircrack-ng)
+  	=> airmon-ng
+  	=> airodump-ng
+* iwconfig (apt-get install wireless-tools)
+
+
+# COMANDES AIRCRACK
+-------------------
+
+* airmon-ng				--> Mata processos que està fent servir l'interficie. La posa/treu en mode monitor.
+* airodump-ng			--> Captura tràfic de les xarxes amb l'interficie en mode monitor i pot desar-lo per a tractar-lo més tard.
+
+
+# DESCRIPCIÓ
+------------
+
+Avui dia s'utilitzen amb molta freqüència les xarxes sense fils per a una major mobilitat o comoditat, però, l'exposició
+a intents de hackers és molt més probable que en una xarxa cablejada, ja que tothom pot veure el flux d'informació que es
+transmet per l'aire i amb temps pot arribar a trobar la clau del punt d'accés.
+En aquests casos, és important conèixer quins clients estan intentant accedir-hi, quins estan connectats i el grau d'exposició
+per fer anàlisis i així poder detectar intrusos.
+
+
+# INFORMACIÓ IMPORTANT
+----------------------
+
+Amb la comanda airodump-ng, es pot aconseguir informació necessària per poder tractar de analitzar la informació:
+
+	=> Dades d'interés:
+
+		* BSSID		--> Direcció MAC del punt d'accés.
+
+		* PWR		--> Nivell de senyal. El seu significat depèn del driver que usem, però com més gran sigui el PWR més a prop estarem de l'AP o del client.
+						Si el PWR és -1, significa que el driver no suporta la detecció del nivell de senyal. Si el PWR és -1 per a alguns clients (stations) 
+						és perquè els paquets procedeixen de l'AP cap al client però les transmissions del client es troben fora del rang de cobertura de la teva targeta.
+						El que significa que només escoltes la meitat de la comunicació. Si tots els clients tenen PWR -1 significa que el driver no té la capacitat de 
+						detectar el nivell de senyal.
+
+		* RXQ 		-->	Qualitat de recepció calculada a través del percentatge de paquets (management i paquets de dades) rebuts correctament en els últims 10 segons. 
+
+		* CH		-->	Número de canal (obtingut dels "paquets anunci" o beacons).
+						Nota: Algunes vegades es capturen paquets d'altres canals, fins i tot si airodump-ng no està saltant de canal en canal, a causa d'interferències
+				 	    o solapaments en el senyal.
+
+		* MB		--> Velocitat màxima suportada per l'Ap. Si MB = 11, és 802.11b, si MB = 22és 802.11b+ i velocitats majors són 802.11g. El punt (després del 54) indica
+					 	que aquesta xarxa suporta un preàmbul curt o "short preamble".
+
+		* ENC		-->	Algorisme d'encriptació que s'usa. OPN = no existeix encriptació (oberta),"WEP?" = WEP o una altra (no s'han capturat suficients paquets de dades 
+						per a saber si és WEP o WPA/WPA2), WEP (sense l'interrogant) indica WEP estàtica o dinàmica, i WPA o WPA2 en el cas que s'usi TKIP o CCMP.
+
+		* CIPHER	-->	Detector cipher. Pot ser CCMP, WRAP, TKIP, WEP, WEP40, o WEP104.
+
+		* AUTH		-->	El protocol d'autenticació usat. Pot ser MGT, PSK (clau precompartida), o OPN (oberta).
+		
+		* ESSID		-->	També anomenat "SSID", que pot estar en blanc si l'ocultació del SSID està activada en l'Ap. En aquest cas, airodump-ng intentarà esbrinar el SSID
+						analitzant paquets "probe responses" i "association requests" (són paquets enviats des d'un client a l'AP).
+
+		* STATION	-->	Direcció MAC de cada client associat.
+
+		* Probes	-->	Els ESSIDs als quals ha intentat connectar-se el client.
+
+	=> Dades que no són necessàries:
+
+		* Beacons	-->	Nombre de "paquets anunci" o beacons enviades per l'Ap. Cada punt d'accés envia al voltant de deu beacons per segon quan el rate o 
+						velocitat és de 1M, (la més baixa) de tal forma que es poden rebre des de molt lluny.
+
+		* # Data	--> Nombre de paquets de dades capturades (si té clau WEP, equival tambien al número de IVs), incloent paquets de dades broadcast (dirigits
+						a tots els clients).
+
+		* #/s 		-->	Nombre de paquets de dades capturades per segon calculant la mitjana dels últims 10 segons.
+
+		* Lost		-->	El nombre de paquets perduts en els últims 10 segons.
+
+		* Packets	-->	El nombre de paquets de dades enviades pel client.
+
+Fent servir un diccionari de macs de fabricants, es pot saber a quin pertany cada Acces Point i cada client per tal de filtrar més fàcilment.
+Per exemple, amb aquestes dades, es pot cercar en el diccionari:
+
+	=>	"eduroam"     1   2.412GHz 00:25:84:23:04:90 -70dBm Master     WPA2 54Mb/s Cisco Systems
+
+	itiel@X550JX:~$ cat mac-list.txt | grep 002584
+	002584	Cisco Systems, Inc
+	itiel@X550JX:~$
+
+Per una altra banda, és interessant i alhora important conèixer les característiques de la interfície amb què s'està fent l'anàlisi, en aquest cas, es vol saber que
+informació aporta, la que està en mode monitor:
+
+	itiel@X550JX:~$ iwconfig wlan0mon
+	wlan0mon  IEEE 802.11  Mode:Monitor  Frequency:2.447 GHz  Tx-Power=20 dBm   
+		      Retry short  long limit:2   RTS thr:off   Fragment thr:off
+		      Power Management:off
+		      
+	itiel@X550JX:~$ 
+
+També es pot saber la freqüència a la que es troba un AP fent la comanda:
+
+	itiel@X550JX:~$ sudo iwlist wlp3s0 scan | grep Frequency
+		                Frequency:2.462 GHz (Channel 11)
+		                Frequency:2.462 GHz (Channel 11)
+		                Frequency:2.462 GHz (Channel 11)
+		                Frequency:2.462 GHz (Channel 11)
+		                Frequency:2.462 GHz (Channel 11)
+		                Frequency:2.412 GHz (Channel 1)
+		                Frequency:2.452 GHz (Channel 9)
+		                Frequency:2.462 GHz (Channel 11)
+	itiel@X550JX:~$
+
+Una alternativa a aquesta comanda és, sabent en quina comença el canal 1, sumar-li els MHz corresponents o també la comanda anterior indica les freqüències disponibles:
+
+	itiel@X550JX:~$ sudo iwlist wlp3s0 freq
+	wlp3s0    32 channels in total; available frequencies :
+		      Channel 01 : 2.412 GHz
+		      Channel 02 : 2.417 GHz
+		      Channel 03 : 2.422 GHz
+		      Channel 04 : 2.427 GHz
+		      Channel 05 : 2.432 GHz
+		      Channel 06 : 2.437 GHz
+		      Channel 07 : 2.442 GHz
+		      Channel 08 : 2.447 GHz
+		      Channel 09 : 2.452 GHz
+		      Channel 10 : 2.457 GHz
+		      Channel 11 : 2.462 GHz
+		      Channel 12 : 2.467 GHz
+		      Channel 13 : 2.472 GHz
+		      Channel 14 : 2.484 GHz
+		      Channel 36 : 5.18 GHz
+		      Channel 38 : 5.19 GHz
+		      Channel 40 : 5.2 GHz
+		      Channel 42 : 5.21 GHz
+		      Channel 44 : 5.22 GHz
+		      Channel 46 : 5.23 GHz
+		      Channel 48 : 5.24 GHz
+		      Channel 52 : 5.26 GHz
+		      Channel 56 : 5.28 GHz
+		      Channel 60 : 5.3 GHz
+		      Channel 64 : 5.32 GHz
+		      Channel 100 : 5.5 GHz
+		      Channel 104 : 5.52 GHz
+		      Channel 108 : 5.54 GHz
+		      Channel 112 : 5.56 GHz
+		      Channel 116 : 5.58 GHz
+		      Channel 120 : 5.6 GHz
+		      Channel 124 : 5.62 GHz
+	itiel@X550JX:~$
+
+	NOTA: Aquestes no són les suportades per la interfície, ja que amb la que s'ha provat no suporta els 5 GHz.
+
+Una altre comanda per treure informació adicional i molt important és:
+
+	itiel@X550JX:~$ nmcli -f GENERAL,WIFI-PROPERTIES dev show wlx00117f494b60 
+	GENERAL.DEVICE:                         wlx00117f494b60
+	GENERAL.TYPE:                           wifi
+	GENERAL.NM-TYPE:                        NMDeviceWifi
+	GENERAL.VENDOR:                         Ralink
+	GENERAL.PRODUCT:                        802.11 n WLAN
+	GENERAL.DRIVER:                         rt2800usb
+	GENERAL.DRIVER-VERSION:                 4.15.0-51-generic
+	GENERAL.FIRMWARE-VERSION:               0.36
+	GENERAL.HWADDR:                         00:11:7F:49:4B:60
+	GENERAL.MTU:                            1500
+	GENERAL.STATE:                          30 (desconectado)
+	GENERAL.REASON:                         42 (El suplicante ahora está disponible)
+	GENERAL.UDI:                            /sys/devices/pci0000:00/0000:00:14.0/usb1/1-2/1-2:1.0/net/wlx00117f494b60
+	GENERAL.IP-IFACE:                       --
+	GENERAL.IS-SOFTWARE:                    no
+	GENERAL.NM-MANAGED:                     sí
+	GENERAL.AUTOCONNECT:                    sí
+	GENERAL.FIRMWARE-MISSING:               no
+	GENERAL.NM-PLUGIN-MISSING:              no
+	GENERAL.PHYS-PORT-ID:                   --
+	GENERAL.CONNECTION:                     --
+	GENERAL.CON-UUID:                       --
+	GENERAL.CON-PATH:                       --
+	GENERAL.METERED:                        desconocido
+	WIFI-PROPERTIES.WEP:                    sí
+	WIFI-PROPERTIES.WPA:                    sí
+	WIFI-PROPERTIES.WPA2:                   sí
+	WIFI-PROPERTIES.TKIP:                   sí
+	WIFI-PROPERTIES.CCMP:                   sí
+	WIFI-PROPERTIES.AP:                     sí
+	WIFI-PROPERTIES.ADHOC:                  sí
+	WIFI-PROPERTIES.2GHZ:                   sí
+	WIFI-PROPERTIES.5GHZ:                   no
+	itiel@X550JX:~$ nmcli -f GENERAL,WIFI-PROPERTIES dev show wl
+	wlp3s0           wlx00117f494b60  
+	itiel@X550JX:~$ nmcli -f GENERAL,WIFI-PROPERTIES dev show wlp3s0 
+	GENERAL.DEVICE:                         wlp3s0
+	GENERAL.TYPE:                           wifi
+	GENERAL.NM-TYPE:                        NMDeviceWifi
+	GENERAL.VENDOR:                         Broadcom Limited
+	GENERAL.PRODUCT:                        BCM43142 802.11b/g/n
+	GENERAL.DRIVER:                         wl
+	GENERAL.DRIVER-VERSION:                 6.30.223.271 (r587334)
+	GENERAL.FIRMWARE-VERSION:               --
+	GENERAL.HWADDR:                         C8:FF:28:89:7A:87
+	GENERAL.MTU:                            1500
+	GENERAL.STATE:                          30 (desconectado)
+	GENERAL.REASON:                         42 (El suplicante ahora está disponible)
+	GENERAL.UDI:                            /sys/devices/pci0000:00/0000:00:1c.2/0000:03:00.0/net/wlp3s0
+	GENERAL.IP-IFACE:                       --
+	GENERAL.IS-SOFTWARE:                    no
+	GENERAL.NM-MANAGED:                     sí
+	GENERAL.AUTOCONNECT:                    sí
+	GENERAL.FIRMWARE-MISSING:               no
+	GENERAL.NM-PLUGIN-MISSING:              no
+	GENERAL.PHYS-PORT-ID:                   --
+	GENERAL.CONNECTION:                     --
+	GENERAL.CON-UUID:                       --
+	GENERAL.CON-PATH:                       --
+	GENERAL.METERED:                        desconocido
+	WIFI-PROPERTIES.WEP:                    sí
+	WIFI-PROPERTIES.WPA:                    sí
+	WIFI-PROPERTIES.WPA2:                   sí
+	WIFI-PROPERTIES.TKIP:                   sí
+	WIFI-PROPERTIES.CCMP:                   sí
+	WIFI-PROPERTIES.AP:                     no
+	WIFI-PROPERTIES.ADHOC:                  sí
+	WIFI-PROPERTIES.2GHZ:                   sí
+	WIFI-PROPERTIES.5GHZ:                   sí
+	itiel@X550JX:~$
+
+	NOTA: En aquesta segona interfície es suposa que el driver és incorrecte, ya que físicament no incorpora la banda 2.4 GHz.
+
+
+# POSSIBLE SORTIDA SCRIPT
+-------------------------
+
+L'script s'intentarà que filtri per tots els canals i totes les xarxes o bé que s'especifiqui un ESSID i també un canal per ajudar
+a no tenir que filtrar-los tots si aquest se sap.
+
+Una possible sortida de l'script a fer podría ser la següent:
+
+	----------------------------------------------------------------------------------------------------------------------------
+	<NOM INTERFICIE> <MAC> <BANDES SUPORTADES> <POTENCIA DE TRANSMISSIÓ> <VENDOR> <DRIVER> <FIRMWARE>
+	----------------------------------------------------------------------------------------------------------------------------
+			ESSID	TYPE	 VENDOR	 CHANNEL FREQUENCY				  MAC	SIGNAL	CIPHER	BANDWITH     ASSOCIATION     ATTEMPT
+	--------------  ----  ---------  ------- ---------  -----------------   ------  ------  -------- ---------------  ----------
+																
+		Itiel_Wifi	  AP  Mitrastar		 11	 2.462 GHz	00:00:00:00:00:00	   -34	   WPA	54Mb/s	  Not associated  No attempt
+	  	   Unknown	 CLI     Xiaomi		 11	 2.462 GHz	11:11:11:11:11:11	   -15	   ###	######	  Itiel_Wifi      No attempt
+	  	   Unknown	 CLI    Samsung		 11	 2.462 GHz	22:22:22:22:22:22	   -15	   ###	######	  Not associated  Itiel_Wifi
+	----------------------------------------------------------------------------------------------------------------------------
+	
+

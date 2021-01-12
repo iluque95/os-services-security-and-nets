@@ -1,0 +1,491 @@
+Pràctica 1 - Sessió 4 - Accés al servidor mitjançant SSH. (Luque Díaz, Itiel)
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Gestor de textos
+* Shell bash
+* Client ssh (apt-get install openssh-client)
+* Servidor ssh (apt-get install openssh-server)
+* Navegador web en bash (apt-get install lynx)
+
+
+# FITXERS RELACIONATS
+---------------------
+
+* /etc/network/interfaces						-->	Configuració de les interfícies
+* /etc/udev/rules.d/70-persistent-net.rules		--> Configuracions permanents de xarxa
+* /etc/hosts									--> Hosts coneguts amb el seu dns
+* /sys/class/net/<interfície>					--> Estadístiques de les interfícies
+* /etc/ssh_config								--> Configuració ssh del client
+* /etc/sshd_config								--> Configuració ssh del servidor
+
+
+# DESCRIPCIÓ
+------------
+
+La seguretat és molt important avui dia, sobretot quan es tracta de connexions remotes que no es sap qui
+pot estar en el mig escoltant els paquets que s'intercanvien entre emissor i receptor i pitjor encara,
+no se'n té ni idea de quines intencions té aquest tercer.
+Molt sovint tan sols no és per seguretat, sinó, per poder administrar una màquina que està geogràficament
+en un altre punt que no es pot accedir físicament.
+Per això, s'empren mecanismes per donar una certa guarantía i protegir la comunicació de punt a punt.
+
+
+# INSTAL·LACIÓ SSH
+------------------
+
+S'ha de determinar si la màquina ja té la comanda instal·lada. Primerament es comprovarà
+si es té el client:
+
+	itiel@X550JX:~$ dpkg -l | grep "openssh-client"
+	ii  openssh-client                             1:7.6p1-4ubuntu0.3                           amd64        secure shell (SSH) client, for secure access to remote machines
+	itiel@X550JX:~$ dpkg -l | grep "openssh-client"
+
+Un altre comanda és:
+
+	itiel@X550JX:~$ whereis ssh
+	ssh: /usr/bin/ssh /etc/ssh /usr/share/man/man1/ssh.1.gz
+	itiel@X550JX:~$
+
+Per comprovar si el server està instal·lat, del mateix mode es fa servir:
+
+	entel@monitor:~$ dpkg -l | grep "ssh"
+	ii  libssh2-1:amd64               1.7.0-1                        amd64        SSH2 client-side library
+	ii  openssh-client                1:7.4p1-10+deb9u5              amd64        secure shell (SSH) client, for secure access to remote machines
+	ii  openssh-server                1:7.4p1-10+deb9u5              amd64        secure shell (SSH) server, for secure access from remote machines
+	ii  openssh-sftp-server           1:7.4p1-10+deb9u5              amd64        secure shell (SSH) sftp server module, for SFTP access from remote machines
+	ii  ssh                           1:7.4p1-10+deb9u5              all          secure shell client and server (metapackage)
+	entel@monitor:~$
+
+A l'igual que el client es pot mirar si està la comanda que executa el dimoni del servidor:
+
+	entel@monitor:~$ whereis sshd
+	sshd: /usr/sbin/sshd /usr/share/man/man8/sshd.8.gz
+	entel@monitor:~$
+
+Així de la mateixa manera que es pot mirar amb la comanda dpkg es pot mirar amb el gestor
+de paquets apt:
+
+	root@monitor:~# apt list --installed | grep ssh
+
+	WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+
+	libssh2-1/stable,now 1.7.0-1 amd64 [instal·lat,automàtic]
+	openssh-client/stable,stable,now 1:7.4p1-10+deb9u5 amd64 [instal·lat]
+	openssh-server/stable,stable,now 1:7.4p1-10+deb9u5 amd64 [instal·lat,automàtic]
+	openssh-sftp-server/stable,stable,now 1:7.4p1-10+deb9u5 amd64 [instal·lat,automàtic]
+	task-ssh-server/stable,now 3.39 all [instal·lat]
+	root@monitor:~#
+
+També es pot mirar si està corrent el dimoni del servidor:
+
+	entel@monitor:~$ ps -u entel | grep sshd
+	  446 ?        00:00:00 sshd
+	entel@monitor:~$
+
+NOTA: Aquest no ha d'estar corrent necessàriament encara que estigui instal·lat.
+
+
+Un cop s'està segur, si s'ha d'instal·lar qualsevol dels dos, es fà:
+
+	Client --> # apt-get install openssh-client
+	Server --> # apt-get install openssh-server
+
+
+# CONFIGURACIÓ DE L'SSH
+-----------------------
+
+Hi ha dos fitxers bàsics per aquest servei, que són primordialment el del client i el del servidor.
+Aquests es troben en /etc/ssh que són l'ssh_config i sshd_config respectivament.
+
+Per garantir una bona seguretat adicional del costat del server es poden configurar diferents directives al fitxer,
+unes de tantes són:
+
+	* LoginGraceTime: Estableix un temps per a introduir la contrasenya.
+	* MaxAuthTries: Quantitat d'intents abans de desconnectar a l'usuari.
+	* MaxStartups: Màximes sessiones simultànies amb una mateixa ip.
+	* AllowUsers: "Llista blanca" amb els usuaris permesos que es poden connectar.
+	* DenyUsers: "Llista negra" amb els usuaris que no es permet la connexió.
+	* AllowGroups/DenyGroups: Llista per grups amb els grups d'usuaris permesos/denegats.
+
+Per reforçar el login dels usuaris i nomès permetre la connexió amb certificats s'ha de canviar la directiva:
+
+	"PasswordAuthentication yes" S'ha de possar a no.
+
+Existeix una altre relacionada amb aquesta que s'hauría d'assegurar-se'n per no deixar als usuaris sense connectivitat
+amb el servidor ssh:
+
+	"PubkeyAuthentication" Aquesta hauría d'estar a yes per permetre l'auntencicació amb clau pública.
+
+I una altre que denega la interacció amb el teclat durant el login, és a dir, l'autenticació per contrasenya:
+
+	"ChallengeResponseAuthentication" Hauría d'estar a no per assolir aquesta restricció.
+
+També per assegurar que el servidor no permet autenticació de les contrasenyes dels usuaris emmagatzemades en /etc/shadow
+s'hauría de canviar el valor a "no" per a la directiva:
+
+	"UsePAM" yes
+
+Del costat del client es poden configurar directives com el port, el tipus de xifrat, on s'emmagatzemen les claus
+del servidor, el caràcter d'escapament, indicar si la connexió és un tunnel, el tipus de tunnel, si es fa servir
+un proxy, etc.
+
+Exemple:
+
+	itiel@X550JX:~$ cat /etc/ssh/ssh_config
+	.
+	.
+	.
+	Host *
+	#   ForwardAgent no
+	#   ForwardX11 no
+	#   ForwardX11Trusted yes
+	#   PasswordAuthentication yes
+	#   HostbasedAuthentication no
+	#   GSSAPIAuthentication no
+	#   GSSAPIDelegateCredentials no
+	#   GSSAPIKeyExchange no
+	#   GSSAPITrustDNS no
+	#   BatchMode no
+	#   CheckHostIP yes
+	#   AddressFamily any
+	#   ConnectTimeout 0
+	#   StrictHostKeyChecking ask
+	#   IdentityFile ~/.ssh/id_rsa
+	#   IdentityFile ~/.ssh/id_dsa
+	#   IdentityFile ~/.ssh/id_ecdsa
+	#   IdentityFile ~/.ssh/id_ed25519
+	#   Port 22
+	#   Protocol 2
+	#   Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc
+	#   MACs hmac-md5,hmac-sha1,umac-64@openssh.com
+	#   EscapeChar ~
+	#   Tunnel no
+	#   TunnelDevice any:any
+	#   PermitLocalCommand no
+	#   VisualHostKey no
+	#   ProxyCommand ssh -q -W %h:%p gateway.example.com
+	#   RekeyLimit 1G 1h
+		SendEnv LANG LC_*
+		HashKnownHosts yes
+		GSSAPIAuthentication yes	
+	itiel@X550JX:~$
+	
+Per validar les configuracions es fa amb el paràmetre -t:
+
+	# /usr/sbin/sshd -t
+
+Existeixen diverses eines que ajuden a trobar forats en la seguretat del servidor ssh, en aquest
+cas es mostraran dues, una online i l'altre és un script python:
+
+https://sshcheck.com/server/ahto.epsevg.upc.edu/
+https://github.com/arthepsy/ssh-audit
+
+Exemple de la pàgina web on es pot auditar el servidor ahto.epsevg.upc.edu:
+
+Rebex SSH Test result for ahto.epsevg.upc.edu:22
+
+	General information
+	Server Identification: 	SSH-2.0-OpenSSH_7.2p2 Ubuntu-4ubuntu2.8
+	IP Address: 	147.83.13.21
+	Generated at: 	2019-03-09 12:32:37 UTC (4 seconds ago)
+	Key Exchange Algorithms
+	diffie-hellman-group-exchange-sha256 	
+	Diffie-Hellman with MODP Group Exchange with SHA-256 hash
+		Secure
+	curve25519-sha256@libssh.org 	
+	Elliptic Curve Diffie-Hellman on Curve25519 with SHA-256 hash
+		Secure
+	ecdh-sha2-nistp256 	
+	Elliptic Curve Diffie-Hellman on NIST P-256 curve with SHA-256 hash
+	Possible NSA backdoor. 	Secure
+	ecdh-sha2-nistp384 	
+	Elliptic Curve Diffie-Hellman on NIST P-384 curve with SHA-384 hash
+	Possible NSA backdoor. 	Secure
+	ecdh-sha2-nistp521 	
+	Elliptic Curve Diffie-Hellman on NIST P-521 curve with SHA-512 hash
+	Possible NSA backdoor. 	Secure
+	diffie-hellman-group14-sha1 	
+	Diffie-Hellman with 2048-bit Oakley Group 14 with SHA-1 hash
+	Oakley Group 14 should be secure for now. SHA-1 is becoming obsolete, consider using SHA-256 version. 	Weak
+	.
+	.
+	.
+
+
+Exemple de l'script python ssh-audit sobre el servidor ahto.epsevg.upc.edu:
+
+	itiel@X550JX:~/ssh-audit$ ./ssh-audit.py ahto.epsevg.upc.edu
+	# general
+	(gen) banner: SSH-2.0-OpenSSH_7.2p2 Ubuntu-4ubuntu2.8
+	(gen) software: OpenSSH 7.2p2
+	(gen) compatibility: OpenSSH 7.2+, Dropbear SSH 2013.62+
+	(gen) compression: enabled (zlib@openssh.com)
+
+	# key exchange algorithms
+	(kex) curve25519-sha256@libssh.org          -- [info] available since OpenSSH 6.5, Dropbear SSH 2013.62
+	(kex) ecdh-sha2-nistp256                    -- [fail] using weak elliptic curves
+		                                    `- [info] available since OpenSSH 5.7, Dropbear SSH 2013.62
+	(kex) ecdh-sha2-nistp384                    -- [fail] using weak elliptic curves
+		                                    `- [info] available since OpenSSH 5.7, Dropbear SSH 2013.62
+	(kex) ecdh-sha2-nistp521                    -- [fail] using weak elliptic curves
+		                                    `- [info] available since OpenSSH 5.7, Dropbear SSH 2013.62
+	(kex) diffie-hellman-group-exchange-sha256  -- [warn] using custom size modulus (possibly weak)
+		                                    `- [info] available since OpenSSH 4.4
+	(kex) diffie-hellman-group14-sha1           -- [warn] using weak hashing algorithm
+		                                    `- [info] available since OpenSSH 3.9, Dropbear SSH 0.53
+
+	# host-key algorithms
+	(key) ssh-rsa                               -- [info] available since OpenSSH 2.5.0, Dropbear SSH 0.28
+	(key) rsa-sha2-512                          -- [info] available since OpenSSH 7.2
+	(key) rsa-sha2-256                          -- [info] available since OpenSSH 7.2
+	(key) ecdsa-sha2-nistp256                   -- [fail] using weak elliptic curves
+		                                    `- [warn] using weak random number generator could reveal the key
+		                                    `- [info] available since OpenSSH 5.7, Dropbear SSH 2013.62
+	(key) ssh-ed25519                           -- [info] available since OpenSSH 6.5
+
+	# encryption algorithms (ciphers)
+	(enc) chacha20-poly1305@openssh.com         -- [info] available since OpenSSH 6.5
+		                                    `- [info] default cipher since OpenSSH 6.9.
+	(enc) aes128-ctr                            -- [info] available since OpenSSH 3.7, Dropbear SSH 0.52
+	(enc) aes192-ctr                            -- [info] available since OpenSSH 3.7
+	(enc) aes256-ctr                            -- [info] available since OpenSSH 3.7, Dropbear SSH 0.52
+	(enc) aes128-gcm@openssh.com                -- [info] available since OpenSSH 6.2
+	(enc) aes256-gcm@openssh.com                -- [info] available since OpenSSH 6.2
+
+	# message authentication code algorithms
+	(mac) umac-64-etm@openssh.com               -- [warn] using small 64-bit tag size
+		                                    `- [info] available since OpenSSH 6.2
+	(mac) umac-128-etm@openssh.com              -- [info] available since OpenSSH 6.2
+	(mac) hmac-sha2-256-etm@openssh.com         -- [info] available since OpenSSH 6.2
+	(mac) hmac-sha2-512-etm@openssh.com         -- [info] available since OpenSSH 6.2
+	(mac) hmac-sha1-etm@openssh.com             -- [warn] using weak hashing algorithm
+		                                    `- [info] available since OpenSSH 6.2
+	(mac) umac-64@openssh.com                   -- [warn] using encrypt-and-MAC mode
+		                                    `- [warn] using small 64-bit tag size
+		                                    `- [info] available since OpenSSH 4.7
+	(mac) umac-128@openssh.com                  -- [warn] using encrypt-and-MAC mode
+		                                    `- [info] available since OpenSSH 6.2
+	(mac) hmac-sha2-256                         -- [warn] using encrypt-and-MAC mode
+		                                    `- [info] available since OpenSSH 5.9, Dropbear SSH 2013.56
+	(mac) hmac-sha2-512                         -- [warn] using encrypt-and-MAC mode
+		                                    `- [info] available since OpenSSH 5.9, Dropbear SSH 2013.56
+	(mac) hmac-sha1                             -- [warn] using encrypt-and-MAC mode
+		                                    `- [warn] using weak hashing algorithm
+		                                    `- [info] available since OpenSSH 2.1.0, Dropbear SSH 0.28
+
+	# algorithm recommendations (for OpenSSH 7.2)
+	(rec) -ecdh-sha2-nistp521                   -- kex algorithm to remove 
+	(rec) -ecdh-sha2-nistp384                   -- kex algorithm to remove 
+	(rec) -ecdh-sha2-nistp256                   -- kex algorithm to remove 
+	(rec) -diffie-hellman-group14-sha1          -- kex algorithm to remove 
+	(rec) -ecdsa-sha2-nistp256                  -- key algorithm to remove 
+	(rec) -hmac-sha2-512                        -- mac algorithm to remove 
+	(rec) -umac-128@openssh.com                 -- mac algorithm to remove 
+	(rec) -hmac-sha2-256                        -- mac algorithm to remove 
+	(rec) -umac-64@openssh.com                  -- mac algorithm to remove 
+	(rec) -hmac-sha1                            -- mac algorithm to remove 
+	(rec) -hmac-sha1-etm@openssh.com            -- mac algorithm to remove 
+	(rec) -umac-64-etm@openssh.com              -- mac algorithm to remove 
+
+	itiel@X550JX:~/ssh-audit$
+
+
+# GENERACIÓ D'UN CERTIFICAT
+---------------------------
+
+Hi han diversos tipus de xifrats i de diferents longituds, quant més bits, més robust.
+
+Per saber l'impremta del certificat del servidor que per defecte es troben a /etc/ssh
+
+	root@monitor:/etc/ssh# ssh-keygen -lf ssh_host_ecdsa_key
+	256 SHA256:Db6R4MvFo2ZnKue8YoriRJCRZPyliBmsPgSvyx5HnCM root@seax (ECDSA)
+	root@monitor:/etc/ssh#
+
+La principal comanda per generar aquests tipus de certificats tant privats com públics es amb ssh-keygen:
+
+	# ssh-keygen -t rsa -C "your_email@example.com"
+
+Amb el paràmetre -t es pot escollir entre dsa, ecdsa, ed25519 i rsa.
+Amb el paràmetre -b es pot escollir la mida en bits del certificat, avui dia es recomana +2048 bits.
+Amb el paràmetre -N es pot emprar una frase com a clau del certificat que farà que sigui més robust.
+Amb el paràmetre -f es pot indicar la sortida, és a dir, on i quin nom tindrà el fitxer.
+
+Exemple:
+
+	root@monitor:~# ssh-keygen -t rsa -b 2048 -f /root/key
+	Generating public/private rsa key pair.
+	Enter passphrase (empty for no passphrase): 
+	Enter same passphrase again: 
+	Your identification has been saved in /root/key.
+	Your public key has been saved in /root/key.pub.
+	The key fingerprint is:
+	SHA256:nqf/kwF3U1W9OdtSzX/WMx0Pz0kSYDQ1OYUVdOo0DgI root@monitor
+	The key's randomart image is:
+	+---[RSA 2048]----+
+	|        E .=oo*=O|
+	|         .. .=..+|
+	|          . . *o+|
+	|          ...*+B+|
+	|        S  o .=*@|
+	|       . .  . .=@|
+	|        o .  o o+|
+	|         o  o    |
+	|        ......   |
+	+----[SHA256]-----+
+	root@monitor:~#
+
+
+# DISTRIBUCIÓ DEL CERTIFICAT
+----------------------------
+
+Un cop s'han generat les claus públiques i privades, la pública s'ha de transferir cap al servidor
+exactament a l'usuari que es vol connectar en $HOME/.ssh/authorized_keys amb els següents permisos:
+
+	root@monitor:~# ls -la | grep ".ssh"
+	-rw-------  1 root root    58 feb 28 15:52 .lesshst
+	drwx------  2 root root  4096 mar  7 18:50 .ssh
+	root@monitor:~# 
+
+	root@monitor:~/.ssh# ls -la | grep keys
+	-rw------- 1 root root  394 mar  7 18:50 authorized_keys
+	root@monitor:~/.ssh#
+
+Directament s'ha de copiar la clau pública en authorized_keys.
+
+NOTA: És possible que no existeixi l'estructura de carpetes.
+
+Per obligar a que els usuaris s'hagin de connectar mitjançant el certificat i que no puguin amb
+una contrasenya, és a dir, l'estàndard que es troba a l'/etc/passwd, s'ha de configurar el fitxer
+del dimoni ssh (/etc/ssh/sshd_config). S'han de modificar i habilitar les dues directives següents:
+
+	PasswordAuthentication no
+	AllowUsers root entel
+
+Per efectuar els canvis es important reinicialitzar el serveri:
+
+	# service sshd restart
+
+I si s'intenta connectar-se'n sense certificat:
+
+	itiel@X550JX:~$ ssh root@192.168.56.102
+	root@192.168.56.102: Permission denied (publickey).
+	itiel@X550JX:~$
+
+Per tant, serà necessari fer servir la clau privada per poder entrar.
+
+Altra forma de poder copiar la clau és passant-li al server amb una comanda abans d'inhabilitar
+a l'usuari l'accès amb password fent servir la comanda:
+
+	$ ssh-copy-id -i <clau pública>
+
+Desprès es pot connectat fent servir la clau copiada amb:
+
+	$ ssh -i <clau privada> <usuari>@<host>
+
+
+# TUNNEL SSH
+------------
+
+Existeixen dos tipus de tunnels, un de local i un de remot. Tot dependrà de l'escenari
+on es vullgui connectar.
+
+Per exemple, si es vol connectar a un ftp que no està exposat a internet, però, que si
+s'en té accès a un servidor SSH obert en la mateixa oficina, es pot accedir a aquest de
+manera com si estigués connectat localment.
+
+Exemple:
+
+	1. Servidor FTP en el port 21 amb ip 192.168.1.50
+	2. Servidor SSH en itiel.exemple.com on l'usuari podría ser itiel
+	3. Port 4000 on s'accedirà com si estigués l'FTP localment
+
+Comanda a executar:
+
+	# ssh -L 4000:localhost:21 itiel@itiel.example.com
+
+Desprès en un client FTP o al navegador, en el port 4000 a localhost, s'accedirà al FTP.
+
+Exemple amb una raspberry pi pròpia:
+
+	itiel@X550JX:~$ ssh -L 4000:localhost:80 pi@192.168.1.127
+	pi@192.168.1.127's password: 
+	Linux raspberrypi 4.14.50-v7+ #1122 SMP Tue Jun 19 12:26:26 BST 2018 armv7l
+	HEEEEEY YOUUU. WHATSS UP BROOO?
+	Last login: Fri Mar  8 15:18:08 2019 from 192.168.1.40
+
+	SSH is enabled and the default password for the 'pi' user has not been changed.
+	This is a security risk - please login as the 'pi' user and type 'passwd' to set a new password.
+
+	pi@raspberrypi:~ $ 
+
+	itiel@X550JX:~$ lynx localhost:4000
+                                                                                                   Apache2 Debian Default Page: It works (p1 of 2)
+	   Debian Logo Apache2 Debian Default Page
+	   It works!
+
+	.
+	.
+	.
+	pi@raspberrypi:~ $
+
+De manera inversa existeix el remot, preten donar accès a un recurs que està situat 
+en l'ordinador que es crea dit tunnel, ja sigui perquè està darrera un tallafocs o
+bé perquè no té port forwarding al router.
+
+Partint del mateix exemple, imaginem que es vol compartir l'accès al servidor FTP
+mitjançant un tunnel que es crearà a partir d'un SSH conegut:
+
+NOTA: Per poder habilitar aquest tipus de configuració en un servidor SSH propi s'ha
+	  de canviar aquesta directiva "GatewayPorts yes" en el fitxer /etc/sshd_config.
+
+Exemple:
+
+	1. Servidor FTP en el port 21 en localhost
+	2. Servidor SSH en itiel.exemple.com on l'usuari podría ser itiel
+	3. Port 4000 on s'accedirà com si estigués l'FTP localment
+	4. Port 21 és el que es tunnelitza amb l'esmentat anteriorment
+
+Comanda a executar:
+
+	# ssh -R 4000: localhost: 21 itiel@itiel.example.com
+
+Exemple, des de la raspberry es crea un tunnel amb ahto.epsevg.upc.edu per a que 
+aquesta sigui accesible per a una tercera màquina:
+
+	pi@raspberrypi:~ $ ssh -R 8888:localhost:22 e7841758@ahto.epsevg.upc.edu
+
+Ara amb la segona màquina s'accedeix a l'ahto:
+	
+	itiel@X550JX:~$ ssh e7841758@ahto.epsevg.upc.edu
+
+I dins de l'ahto ja es pot entrar a la raspberry pi des de la segona màquina fora de
+la xarxa mitjançant el tunnel remot:
+
+	e7841758@ahto:~$ ssh pi@localhost -p 8888
+
+
+A part d'aquests dos bàsics existeix un més, molt útil, que es semblant al tunnel local.
+Aquest es diu tunnel dinàmic i és molt semblant a un proxy.
+
+Per fer-lo servir, es pot fer amb la comanda:
+
+	# ssh -D 6666 itiel@ssh.lamevacasa.com
+
+Per tant, a partir d'aquest punt, es crearà un socket que fa servir el protocol SOCKS i
+es podrà accedir, previament configurada l'aplicació en qüestió en l'apartat proxy, als
+recursos que hi han en la xarxa remota (lamevacasa.com) dinàmicament, que vol dir, que 
+a partir del port 6666 ja s'encarrega en fer possible que tots els recursos estiguin
+disponibles, és a dir, es configura p.ex. un navegador web al port 6666, però, que en
+realitat fa servir el 80 i 443 i fa el tunnel entre els ports 6666 i 80/443.
+
+Tot el tràfic passa pel servidor remot, és a dir, si es navega en una wifi oberta amb
+el tunnel dinàmic, el tràfic esmentant, passa xifrat per SSH cap el servidor remot i es
+aquest qui fa de pont amb internet (p.ex: si s'ha configurat al navegador web).
+
+Si es mira l'ip amb la qual s'està navegant, és la del tunnel.
+
+NOTA: Per fer possible el tunnel, en el servidor s'ha d'activar la següent directiva a
+	  /etc/sshd_config "AllowTcpForwarding".

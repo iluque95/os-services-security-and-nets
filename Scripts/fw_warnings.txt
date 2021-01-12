@@ -1,0 +1,97 @@
+
+---------------- Data inici: 2019-04-24 01:04:16 ----------------
+Possibles atacs SSH
+
+ No s ha trobat cap atac al port 22.
+Possibles atacs ICMP
+
+ No s ha trobat cap atac del tipus ICMP.
+Possibles atacs DNS
+
+ ------------ Apr 24 00:05:57 -------------
+Interfície entrada:		Dada no proporcionada
+Interfície sortida:		eth-dmz
+@ origen:			10.10.1.1
+@ destí:			10.10.1.4 10.0.4.3
+Protocol:			ICMP UDP
+Port origen:			34018
+Port destí:			53
+-------------------------------------
+------------ Apr 24 00:06:02 -------------
+Interfície entrada:		Dada no proporcionada
+Interfície sortida:		eth-dmz
+@ origen:			10.10.1.1
+@ destí:			10.10.1.4 10.0.4.3
+Protocol:			ICMP UDP
+Port origen:			34018
+Port destí:			53
+-------------------------------------
+------------ Apr 24 00:06:07 -------------
+Interfície entrada:		Dada no proporcionada
+Interfície sortida:		eth-dmz
+@ origen:			10.10.1.1
+@ destí:			10.10.1.4 10.0.4.3
+Protocol:			ICMP UDP
+Port origen:			34018
+Port destí:			53
+-------------------------------------
+------------ Apr 24 00:06:12 -------------
+Interfície entrada:		Dada no proporcionada
+Interfície sortida:		eth-dmz
+@ origen:			10.10.1.1
+@ destí:			10.10.1.4 10.0.4.3
+Protocol:			ICMP UDP
+Port origen:			34018
+Port destí:			53
+-------------------------------------
+------------ Apr 24 00:07:01 -------------
+Interfície entrada:		Dada no proporcionada
+Interfície sortida:		eth-dmz
+@ origen:			10.10.1.1
+@ destí:			10.10.1.4 10.0.4.3
+Protocol:			ICMP UDP
+Port origen:			60897
+Port destí:			53
+-------------------------------------
+------------ Apr 24 00:08:01 -------------
+Interfície entrada:		Dada no proporcionada
+Interfície sortida:		eth-dmz
+@ origen:			10.10.1.1
+@ destí:			10.10.1.4 10.0.4.3
+Protocol:			ICMP UDP
+Port origen:			58143
+Port destí:			53
+-------------------------------------
+------------ Apr 24 00:09:00 -------------
+Interfície entrada:		Dada no proporcionada
+Interfície sortida:		eth-dmz
+@ origen:			10.10.1.1
+@ destí:			10.10.1.4 64.68.197.10
+Protocol:			ICMP UDP
+Port origen:			59996
+Port destí:			53
+-------------------------------------
+
+Possibles atacs a ports ben coneguts
+
+ ------------ Apr 24 00:06:05 -------------
+Interfície entrada:		eth-troncal-1
+Interfície sortida:		Dada no proporcionada
+@ origen:			0.0.0.0
+@ destí:			255.255.255.255
+Protocol:			UDP
+Port origen:			68
+Port destí:			67
+------------------------------------------
+------------ Apr 24 00:09:57 -------------
+Interfície entrada:		eth-troncal-1
+Interfície sortida:		Dada no proporcionada
+@ origen:			192.168.1.46
+@ destí:			192.168.1.255
+Protocol:			UDP
+Port origen:			137
+Port destí:			137
+------------------------------------------
+
+
+---------------- Data fi: 2019-04-24 01:04:16 ----------------

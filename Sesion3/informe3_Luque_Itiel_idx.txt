@@ -1,0 +1,583 @@
+Pràctica 3 - Sessió 3 - Serveis sobre HTTP i HTTPS. (Luque Díaz Itiel)
+
+
+# INDEX
+-------
+
+(*) PROGRAMARI NECESSARI.....................................19
+(*) FITXER RELACIONATS.......................................29
+(*) COMANDES APACHE2.........................................39
+(*) CONSIDERACIONS...........................................47
+(*) DESCRIPCIÓ...............................................54
+(*) CONFIGURACIÓ D'UN VIRTUALHOST APACHE2....................64
+(*) CONFIGURACIÓ VIRTUALHOST SEGUR (SSL) APACHE2............180
+(*) CONFIGURACIÓ WEBDAV APACHE2.............................318
+(*) WEBMIN..................................................525
+(*) SEGURETAT...............................................569
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* apache2 (apt-get install apache2)
+* mòdul php (apt-get install lib-mod-php7.0)
+* cadaver (apt-get install cadaver)
+
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/hosts										-->	Caché local (DNS LOCAL) en màquina real.
+* /etc/apache2/sites-available/000-default.conf		--> Host virtual per al protocol http (port 80).
+* /etc/apache2/sites-available/default-ssl.conf		--> Host virtual per al protocol https (port 443).
+* /etc/apache2/ports.conf							--> Ports pels que escolta el daemon.
+* /etc/webmin/miniserv.conf							--> Configuració del servidor webmin.
+
+
+# COMANDES APACHE2
+------------------
+
+* a2{en/dis}site		--> Habilita o deshabilita un host virtual (site).
+* a2{en/dis}mod			--> Habilita o deshabilita un mòdul de apache2.
+* apachectl configtest	-->	Comprova la sintaxis dels arxius de configuració (sites/vhosts).
+
+
+# CONSIDERACIONS
+----------------
+
+- En aquesta pràctica, en comptes de fer servir un DNS per a resoldre la IP, s'ha fet servir la caché local /etc/hosts.
+- La URI es diferenciada pel protocol HTTP/HTTPS en la directiva Host. Apache2 determina a quin vhost ha d'anar el client gràcies a aquesta.
+
+
+# DESCRIPCIÓ
+------------
+
+Amb la web 2.0 ha arribat un punt en què el ser humà està acostumat a fer-ho tot mitjançant navegadors que están a l'abast de qualsevol
+persona, des de cerca informació, fer una comanda en una botiga, reservar lloc en el cinema, compartir experiències amb altres persones
+fins a administrar serveis d'una forma còmoda.
+Per garantir aquestes transaccions, lliures de persones malicioses, és necessari emprar seguretat en aquestes.
+Administrar un servei amb la web 2.0 és fàcil, segur, escal·lable, fàcil de gestionar i multiplataforma.
+ 
+
+# CONFIGURACIÓ D'UN VIRTUALHOST APACHE2
+---------------------------------------
+
+Per configurar un virtualhost nou, es pot començar copiant la plantilla que porta per defecte apache2:
+
+	root@esclavo1:/etc/apache2/sites-available# cp 000-default.conf entel.com.conf
+	root@esclavo1:/etc/apache2/sites-available#
+	
+	NOTA: És extremadament important que l'extensió del fitxer sigui .conf.
+
+S'ha de distingir dos coses importants:
+
+	1. La URI que identificarà aquest lloc virtual en la directiva ServerName.
+	2. On estarà situat el lloc web a nivell intern del servidor web en la directiva DocumentRoot.
+
+	root@esclavo1:/etc/apache2/sites-available# cat entel.com | grep -v "#"
+	<VirtualHost *:80>
+		ServerName entel.com
+
+		ServerAdmin webmaster@localhost
+		DocumentRoot /var/www/entel.com
+
+
+		ErrorLog ${APACHE_LOG_DIR}/error.log
+		CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+			        
+	</VirtualHost>
+
+	root@esclavo1:/etc/apache2/sites-available#
+
+Com a opcional, es pot modificar també el port. En aquest cas, el vhost està escoltant en el 80 i per totes les xarxes.
+En cas de modificar el port i incloure un de nou, s'ha d'afegir en el fitxer de configuració:
+
+	root@esclavo1:/etc/apache2# cat ports.conf 
+	# If you just change the port or add more ports here, you will likely also
+	# have to change the VirtualHost statement in
+	# /etc/apache2/sites-enabled/000-default.conf
+
+	Listen 80
+	Listen 8080
+
+	<IfModule ssl_module>
+		Listen 443
+	</IfModule>
+
+	<IfModule mod_gnutls.c>
+		Listen 443
+	</IfModule>
+
+	# vim: syntax=apache ts=4 sw=4 sts=4 sr noet
+	root@esclavo1:/etc/apache2#
+
+	NOTA: En aquest cas, s'ha afegit el port 8080. Per a que fos efectiu per a un vhost, s'hauría de canviar en <VirtualHost *:80
+		  per <VirtualHost *:8080>.
+
+Un cop està configurat el host, s'ha d'activar aquest:
+
+	root@esclavo1:/etc/apache2/sites-available# a2ensite entel.com.conf 
+	Enabling site entel.com.
+	To activate the new configuration, you need to run:
+	  systemctl reload apache2
+	root@esclavo1:/etc/apache2/sites-available#
+
+	root@esclavo1:/etc/apache2/sites-available# systemctl reload apache2
+	root@esclavo1:/etc/apache2/sites-available#
+
+S'ha de crear el DocumentRoot especificat en el fitxer de configuració del lloc virtual:
+
+	root@esclavo1:/var/www# ls -l | grep entel.com
+	drwxr-xr-x 2 root     www-data 4096 may 16 10:15 entel.com
+	root@esclavo1:/var/www#
+
+Es satisfarà un dels requeriments de la pràctica que es crear un recurs php que digui l'ip amb que es connecta l'usuari:
+
+	root@esclavo1:/var/www/entel.com# ls
+	index.php
+	root@esclavo1:/var/www/entel.com#
+
+	root@esclavo1:/var/www/entel.com# cat index.php 
+	<?php echo $_SERVER['REMOTE_ADDR']; ?>
+
+	root@esclavo1:/var/www/entel.com#
+
+Comprovació del funcionament des de la màquina real:
+
+	itiel@X550JX:~$ wget entel.com
+	--2019-05-17 18:12:13--  http://entel.com/
+	Resolviendo entel.com (entel.com)... 192.168.56.113
+	Conectando con entel.com (entel.com)[192.168.56.113]:80... conectado.
+	Petición HTTP enviada, esperando respuesta... 200 OK
+	Longitud: 13 [text/html]
+	Guardando como: “index.html”
+
+	index.html          100%[===================>]      13  --.-KB/s    en 0s      
+
+	2019-05-17 18:12:13 (2,03 MB/s) - “index.html” guardado [13/13]
+
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ cat index.html 
+	192.168.56.1
+	itiel@X550JX:~$
+
+	NOTA: Es pot observar que està funcionant correctament el mòdul php i està retornant l'ip de l'usuari.
+
+Demostració de l'ip amb la que accedeix al recurs:
+
+	itiel@X550JX:~$ ip a | grep vboxnet | grep inet
+    inet 192.168.56.1/24 brd 192.168.56.255 scope global vboxnet0
+	itiel@X550JX:~$
+
+	NOTA: Es troba a la mateixa xarxa, en aquest cas, és una xarxa interna amb la màquina física, no fa servir
+		  cap tipus de NAT.
+
+
+# CONFIGURACIÓ VIRTUALHOST SEGUR (SSL) APACHE2
+----------------------------------------------
+
+Cal activar el mòdul SSL primerament:
+
+	root@esclavo1:~# a2enmod ssl
+	Considering dependency setenvif for ssl:
+	Module setenvif already enabled
+	Considering dependency mime for ssl:
+	Module mime already enabled
+	Considering dependency socache_shmcb for ssl:
+	Module socache_shmcb already enabled
+	Enabling module ssl.
+	See /usr/share/doc/apache2/README.Debian.gz on how to configure SSL and create self-signed certificates.
+	To activate the new configuration, you need to run:
+	  systemctl restart apache2
+	root@esclavo1:~#
+
+També és necessari carregar el vhost amb les directives del mòdul SSL que porta apache2 per defecte:
+
+	root@esclavo1:~# a2ensite default-ssl.conf 
+	Enabling site default-ssl.
+	To activate the new configuration, you need to run:
+	  systemctl reload apache2
+	root@esclavo1:~#
+
+És important reinicialitzar després d'habilitar aquesta configuració:
+
+	root@esclavo1:~# systemctl reload apache2
+	root@esclavo1:~#
+
+Comprovació del funcionament del protocol HTTP amb la capa segura SSL (HTTPS):
+
+	itiel@X550JX:~$ wget https://192.168.56.113/test.php
+	--2019-05-17 18:21:58--  https://192.168.56.113/test.php
+	Conectando con 192.168.56.113:443... conectado.
+	ERROR: no se puede verificar el certificado de 192.168.56.113, emitido por “CN=esclavo1”:
+	  Se encontró un certificado autofirmado.
+		ERROR: el nombre común “esclavo1” del certificado no encaja con el nombre de equipo “192.168.56.113” solicitado.
+	Para conectar inseguramente a 192.168.56.113, use `--no-check-certificate'.
+	itiel@X550JX:~$	
+
+Es queixa per diferents casuístiques, entre aquestes, perquè és un certificat que ha firmat el propi sistema operatiu
+durant la instal·lació d'aquest, també perquè no és el mateix hostname respecte el que es va possar quan es va crear
+el certificat, s'ha canviat durant el transcurs de les diferents pràctiques. Caldría tornar a crear-lo. En tot cas, 
+igorant l'output, aquest és el resultat:
+
+	itiel@X550JX:~$ wget https://192.168.56.113/test.php --no-check-certificate
+	--2019-05-17 18:23:26--  https://192.168.56.113/test.php
+	Conectando con 192.168.56.113:443... conectado.
+	AVISO: no se puede verificar el certificado de 192.168.56.113, emitido por “CN=esclavo1”:
+	  Se encontró un certificado autofirmado.
+		AVISO: el nombre común “esclavo1” del certificado no encaja con el nombre de equipo “192.168.56.113” solicitado.
+	Petición HTTP enviada, esperando respuesta... 200 OK
+	Longitud: 42 [text/html]
+	Guardando como: “test.php”
+
+	test.php            100%[===================>]      42  --.-KB/s    en 0s      
+
+	2019-05-17 18:23:26 (7,60 MB/s) - “test.php” guardado [42/42]
+
+	itiel@X550JX:~$
+
+	itiel@X550JX:~$ cat test.php
+	192.168.56.1
+	<br/>Your ip is: 192.168.56.1
+	itiel@X550JX:~$
+
+Ara que ja es sap que funciona tot correctament, es pot afegir seguretat al vhost d'entel.com, copiant les directives SSL
+a aquest:
+
+	root@esclavo1:/etc/apache2/sites-available# cat default-ssl.conf | grep -v "#" > ssl.entel.com.conf
+	root@esclavo1:/etc/apache2/sites-available#
+
+	root@esclavo1:/etc/apache2/sites-available# cat ssl.entel.com.conf 
+	<IfModule mod_ssl.c>
+		<VirtualHost _default_:443>
+			ServerAdmin webmaster@localhost
+			ServerName entel.com
+			DocumentRoot /var/www/entel.com
+
+			ErrorLog ${APACHE_LOG_DIR}/error.log
+			CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+			SSLEngine on
+
+			SSLCertificateFile	/etc/ssl/certs/ssl-cert-snakeoil.pem
+			SSLCertificateKeyFile /etc/ssl/private/ssl-cert-snakeoil.key
+
+
+			<FilesMatch "\.(cgi|shtml|phtml|php)$">
+					SSLOptions +StdEnvVars
+			</FilesMatch>
+			<Directory /usr/lib/cgi-bin>
+					SSLOptions +StdEnvVars
+			</Directory>
+
+		</VirtualHost>
+	</IfModule>
+
+	root@esclavo1:/etc/apache2/sites-available#
+
+	root@esclavo1:/etc/apache2/sites-available# a2ensite ssl.entel.com.conf 
+	Enabling site ssl.entel.com.
+	To activate the new configuration, you need to run:
+	  systemctl reload apache2
+	root@esclavo1:/etc/apache2/sites-available#
+
+	root@esclavo1:/etc/apache2/sites-available# systemctl reload apache2
+	root@esclavo1:/etc/apache2/sites-available#
+
+En aquest punt, el vhost entel.com ja està funcionant per protocol no segur (http). Es comprovarà si funciona per protocol segur (https):
+
+	itiel@X550JX:~$ wget https://entel.com --no-check-certificate
+	--2019-05-17 18:30:12--  https://entel.com/
+	Resolviendo entel.com (entel.com)... 192.168.56.113
+	Conectando con entel.com (entel.com)[192.168.56.113]:443... conectado.
+	AVISO: no se puede verificar el certificado de entel.com, emitido por “CN=esclavo1”:
+	  Se encontró un certificado autofirmado.
+	AVISO: ningún nombre de sujeto alternativo del certificado encaja con
+		el nombre de equipo “entel.com” solicitado.
+	Petición HTTP enviada, esperando respuesta... 200 OK
+	Longitud: 13 [text/html]
+	Guardando como: “index.html.1”
+
+	index.html.1                                   100%[=================================================================================================>]      13  --.-KB/s    en 0s      
+
+	2019-05-17 18:30:12 (2,74 MB/s) - “index.html.1” guardado [13/13]
+
+	itiel@X550JX:~$ 
+
+	itiel@X550JX:~$ cat index.html.1 
+	192.168.56.1
+	itiel@X550JX:~$
+
+NOTA: També es podría haver fusionat els dos vhosts en el mateix. Però, per poder fer-lo més mantenible en el temps, és millor tenir-los separats.
+
+
+# CONFIGURACIÓ WEBDAV APACHE2
+-----------------------------
+
+Primer s'ha d'activar els mòduls adients per al webdav:
+
+	root@esclavo1:/etc/apache2/sites-available# a2enmod dav*
+	Module dav already enabled
+	Considering dependency dav for dav_fs:
+	Module dav already enabled
+	Enabling module dav_fs.
+	Enabling module dav_lock.
+	To activate the new configuration, you need to run:
+	  systemctl restart apache2
+	root@esclavo1:/etc/apache2/sites-available#
+
+S'han d'incloure les diferents directives que fan referència al protocol DAV. Es farà sobre el vhost per defecte:
+
+	root@esclavo1:/etc/apache2/sites-available# cat 000-default.conf | grep -v "#"
+	<VirtualHost *:80>
+
+		ServerAdmin webmaster@localhost
+		DocumentRoot /var/www/html
+
+
+		ErrorLog ${APACHE_LOG_DIR}/error.log
+		CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+		
+		Alias /webdav /var/www/webdav
+		    
+		<Directory /var/www/webdav>
+			Options Includes FollowSymlinks MultiViews
+		            Options indexes MultiViews
+			Options +Indexes
+		            AllowOverride all
+		            Order allow,deny
+			Allow from all
+		    </Directory>
+		
+		<Location /webdav>
+				DAV On
+				Options None
+				AuthType Basic
+				AuthName webdav
+				AuthUserFile /etc/apache2/.htpasswd
+				Require valid-user
+			Options Includes FollowSymlinks MultiViews
+			Options +Indexes
+		            AllowOverride all
+		            Order allow,deny
+			Allow from all
+		</Location>
+		
+	</VirtualHost>
+
+	root@esclavo1:/etc/apache2/sites-available#
+	
+	NOTA1: S'ha fet servir un Alias per a quan s'accedeixi al recurs /webdav aquest vagi a trobar-se en el directori /var/www/webdav.
+		   Les directives noves són les de les etiquetes Location, les Directory es comenten en la següent nota.
+
+	NOTA2: Per poder llistar per http/https, cal ficar les opcions Options +Indexes, etc. En la etiqueta Location i no en Directory.
+		  S'han deixat per evitar qualsevol tipus de problema, però, en tot cas, les ignora l'apache.
+
+S'ha d'afegir un usuari per autenticar-se'n al protocol DAV, que, en aquest cas, s'està separant el login d'usuaris de sistema
+amb els de DAV. Es podría fer servir altres mòduls per a autenticar-se amb usuaris de sistema.
+Per afegir un nou usuari:
+
+	root@esclavo1:/etc/apache2# htpasswd /etc/apache2/.htpasswd itielweb
+	New password: 
+	Re-type new password: 
+	Adding password for user itielweb
+	root@esclavo1:/etc/apache2#
+
+Cal crear l'estructura de carpetes que s'ha indicat previament en el fitxer de configuració del vhost:
+
+	root@esclavo1:/var/www# ls -l | grep webdav
+	drwxr-xr-x 3 root     www-data 4096 may 16 12:49 webdav
+	root@esclavo1:/var/www#
+
+Cal reinicialitzar el demoni:
+	root@esclavo1:/var/www# systemctl reload apache2
+	root@esclavo1:/var/www#
+
+Comprovació d'autenticació amb usuari "itielweb" i la clau assignada mitjançat http en el navegador:
+
+	Index of /webdav
+	[ICO]	Name	Last modified	Size	Description
+	[PARENTDIR]	Parent Directory	 	- 	 
+	[ ]	asd	2019-05-16 12:43 	6 	 
+	[TXT]	sample.txt	2019-05-16 10:55 	24 	 
+	[DIR]	webdav/	2019-05-16 12:33 	- 	 
+	Apache/2.4.25 (Debian) Server at 192.168.56.113 Port 80
+
+Comprovació des de el terminal amb el paquet cadaver:
+
+	itiel@X550JX:~$ cadaver http://192.168.56.113/webdav
+	Autenticación requerida para webdav en el servidor '192.168.56.113':
+	Nombre de usuario: itielweb
+	Contraseña: 
+	dav:/webdav/> ls
+	Listando colección `/webdav/': exitoso.
+	 Col:   webdav                                 0  may 16 12:33
+		   *asd                                    6  may 16 12:43
+		   *sample.txt                            24  may 16 10:55
+	dav:/webdav/> 
+	^CTerminado por señal 2.
+	Conexión con '192.168.56.113' cerrada.
+	itiel@X550JX:~$
+
+Per configurar-lo amb https, es replicarà la explicació de com activar un site segur, però amb les directives del dav.
+Es copien les directives dav en el fitxer default-ssl.conf:
+
+	root@esclavo1:/etc/apache2/sites-available# cat default-ssl.conf | grep -v "#"
+	<IfModule mod_ssl.c>
+		<VirtualHost _default_:443>
+			ServerAdmin webmaster@localhost
+
+			DocumentRoot /var/www/html
+
+			ErrorLog ${APACHE_LOG_DIR}/error.log
+			CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+			SSLEngine on
+
+			SSLCertificateFile	/etc/ssl/certs/ssl-cert-snakeoil.pem
+			SSLCertificateKeyFile /etc/ssl/private/ssl-cert-snakeoil.key
+
+			<FilesMatch "\.(cgi|shtml|phtml|php)$">
+					SSLOptions +StdEnvVars
+			</FilesMatch>
+			<Directory /usr/lib/cgi-bin>
+					SSLOptions +StdEnvVars
+			</Directory>
+
+		Alias /webdav /var/www/webdav
+
+		<Location /webdav>
+		            DAV On
+		    	SSLRequireSSL
+		            Options None
+		            AuthType Basic
+		            AuthName webdav
+		            AuthUserFile /etc/apache2/.htpasswd
+		            Require valid-user
+		            Options Includes FollowSymlinks MultiViews
+		            Options +Indexes
+		            AllowOverride all
+		            Order allow,deny
+		            Allow from all
+		    </Location>
+
+
+		</VirtualHost>
+	</IfModule>
+
+	root@esclavo1:/etc/apache2/sites-available#
+
+Es deshabilitarà, habilitarà i reinicialitzarà l'apache per a que agafi els canvis efectuats:
+
+	root@esclavo1:/etc/apache2/sites-available# a2dissite default-ssl.conf 
+	Site default-ssl disabled.
+	To activate the new configuration, you need to run:
+	  systemctl reload apache2
+	root@esclavo1:/etc/apache2/sites-available#
+
+	root@esclavo1:/etc/apache2/sites-available# a2ensite default-ssl.conf 
+	Enabling site default-ssl.
+	To activate the new configuration, you need to run:
+	  systemctl reload apache2
+	root@esclavo1:/etc/apache2/sites-available#
+
+	root@esclavo1:/etc/apache2/sites-available# systemctl reload apache2
+	root@esclavo1:/etc/apache2/sites-available# 
+
+Comprovacions amb el navegador i amb cadaver:
+
+	Index of /webdav
+	[ICO]	Name	Last modified	Size	Description
+	[PARENTDIR]	Parent Directory	 	- 	 
+	[ ]	asd	2019-05-16 12:43 	6 	 
+	[TXT]	sample.txt	2019-05-16 10:55 	24 	 
+	[DIR]	webdav/	2019-05-16 12:33 	- 	 
+	Apache/2.4.25 (Debian) Server at 192.168.56.113 Port 443
+
+	itiel@X550JX:~$ cadaver https://192.168.56.113/webdav
+	WARNING: Untrusted server certificate presented for `esclavo1':
+	Certificate was issued to hostname `esclavo1' rather than `192.168.56.113'
+	This connection could have been intercepted.
+	Issued to: esclavo1
+	Issued by: esclavo1
+	Certificate is valid from Thu, 16 May 2019 07:10:18 GMT to Sun, 13 May 2029 07:10:18 GMT
+	Do you wish to accept the certificate? (y/n) y
+	Autenticación requerida para webdav en el servidor '192.168.56.113':
+	Nombre de usuario: itielweb
+	Contraseña: 
+	dav:/webdav/> ls
+	Listando colección `/webdav/': exitoso.
+	 Col:   webdav                                 0  may 16 12:33
+		   *asd                                    6  may 16 12:43
+		   *sample.txt                            24  may 16 10:55
+	dav:/webdav/> exit
+	Conexión con '192.168.56.113' cerrada.
+	itiel@X550JX:~$
+
+	NOTA: Es pot veure com cadaver detecta el certificat i pregunta si confiem en aquest.
+
+
+# WEBMIN
+--------
+
+Instal·lació de dependències per a Debian 9:
+
+ $ apt install software-properties-common apt-transport-https wget
+
+Importació de la clau del repositori de webmin:
+
+	root@esclavo1:~# wget -q http://www.webmin.com/jcameron-key.asc -O- | sudo apt-key add -
+	sudo: unable to resolve host esclavo1: Expiró el tiempo de conexión
+	OK
+	root@esclavo1:~#
+
+
+Agregació del repositori a les llistes /etc/apt/sources.list:
+
+	root@esclavo1:~# add-apt-repository "deb [arch=amd64] http://download.webmin.com/download/repository sarge contrib"
+	root@esclavo1:~#
+
+Actualització i instal·lació de webmin:
+
+	root@esclavo1:~# apt update && sudo apt install webmin
+	.
+	.
+	.
+	Webmin install complete. You can now login to https://esclavo1:10000/
+	as root with your root password, or as any user who can use sudo
+	to run commands as root.
+	Procesando disparadores para systemd (241-3~bpo9+1) ...
+	root@esclavo1:~#
+
+Per defecte el servei s'inicialitza amb protocol HTTPS i no permet HTTP.
+
+Es pot canviar per a què sigui forçosament HTTP canviant la directiva el 1 per un 0:
+
+	root@esclavo1:/etc/webmin# cat miniserv.conf | grep ssl=
+	ssl=0
+	root@esclavo1:/etc/webmin#
+
+	NOTA: No li agrada funcionar sobre HTTP, llença error de cookies.
+
+
+
+# SEGURETAT
+-----------
+
+Regles bàsiques per a http, https, dav i davs sense estat:
+
+	iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+	iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+
+Regles bàsiques per al webmin:
+
+	iptables -A INPUT -p tcp --dport 10000 -j ACCEPT
+
+	NOTA: Es pot canviar el port en el fitxer de configuració del servidor de webmin.
+
+

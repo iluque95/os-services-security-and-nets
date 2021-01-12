@@ -1,0 +1,42 @@
+Pràctica 3 - Sessió 2 - Crear un raid/cluster de discs en xarxa
+Pràctica 3 - Sessió 2 - Crear un cluster de discs en xarxa
+
+1- Gestionar un RAID amb mdadm.
+    - Configurar un RAID 0 amb mdadm.
+    - Configurar un RAID 1 amb mdadm.
+    - Configurar un RAID 5 amb mdadm.
+    - Configurar un RAID 6 amb mdadm.
+    - Realitzar el canvi d'un disc del raid.
+    - Compartir el RAID en xarxa amb SAMBA.
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant eines del sistema i realitzar captures de xarxa amb un servidor i un client.
+   
+2- Gestionar un RAID amb zfs.
+    - Configurar un RAIDZ amb zfs i disc de recanvi en calent (hot spare).
+    - Realitzar el canvi d'un disc del raid.
+    - Compartir el RAID en xarxa amb SAMBA.
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant eines del sistema i realitzar captures de xarxa amb un servidor i un client.
+
+3- Gestionar un cluster de discs amb drbd.
+    - Configurar un cluster de 2 discs amb drdb (equips primari i secundari).
+    - Simular la fallida d'un disc del cluster (primari i secundari).
+    - Definir les taules IP adient per a aquest servei.
+    - Fer proves mitjançant eines del sistema i realitzar captures de xarxa amb un servidor i un client.
+
+4- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p3_s2_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p3_s2_cognom1_nom.zip.
+   
+5- A títol orientatiu, el resultat de la pràctica cal que doni resposta a les següents qüestions:
+[*]    - Com es configura un RAID 0/1/5/6 amb mdadm?
+[*]    - Com es repara un RAID 0/1/5/6 amb mdadm?
+[*]    - Com es comparteix en una xarxa un RAID 0/1/5/6 amb mdadm?
+   
+[*]    - Com es configura un RAID amb zfs?   
+[*]    - Com es repara un RAID amb zfs?
+[*]    - Com es comparteix en una xarxa un RAID amb zfs?
+
+[*]    - Com es configura un cluster de discs amb drbd?   
+[]    - Com es repara un cluster de discs amb drbd?
+[*]    - Com es comparteix en una xarxa un cluster de discs amb drbd?

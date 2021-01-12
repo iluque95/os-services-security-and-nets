@@ -1,0 +1,292 @@
+---------------- Data inici: 2019-06-18 12:57:20 ----------------
+
+Usuaris del sistema 
+-------------------
+ 
+Usuaris humans:		root,itiel
+Usuaris connectats:	itiel    :0           2019-06-18 09:48 (:0)
+
+Configuració de l'equip 
+-----------------------
+ 
+Direcció del router: 	10.192.1.1
+Direcció externa: 	147.83.201.97 (clients-xsf-97.upc.es.)
+Direccions dels DNS: 	127.0.0.53
+
+Informació de les interfícies
+-----------------------------
+
+Nom de la interfície: 	wlp3s0 (No configurada)
+Estat: 			Activa
+Configuració: 		Amb paràmetres
+Associació: 		Associada
+Adreça MAC: 		c8:ff:28:89:7a:87
+Protocols suportats: 	IEEE 802.11
+Protocols xifrat:	WEP40
+			WEP104
+			TKIP
+			CCMP-128
+			CMAC
+Direcció IP privada: 	10.192.238.110
+Màscara de l'equip: 	255.255.0.0 (/16)
+Direcció broadcast: 	10.192.255.255
+Direcció de xarxa: 	10.192.0.0
+Nom local equip: 	No s'ha pogut obtindre
+Nom local xarxa: 	No s'ha pogut obtindre
+Nom DNS de l'equip: 	No s'ha pogut obtindre
+Nom DNS de la xarxa: 	No s'ha pogut obtindre
+MTU: 			1500
+
+Xarxes sense fil disponibles
+----------------------------
+
+ESSID: 			eduroam
+Adreça MAC AP: 		64:F6:9D:B3:EA:B0
+Freqüència i canal: 	2.472 GHz (Channel 13)
+Senyal: 		-39 dBm  
+Qualitat: 		70/70
+Xifrat:			Unknown 0007656475726F616D
+			Unknown 01061824B048606C
+			Unknown 03010D
+			Unknown 0706455320010D14
+			Unknown 0B050600148D5B
+			Unknown 2A0100
+			Unknown 2D1AAC191BFFFF000000000000000000000000000000000000000000
+			802.11i/WPA2 Version 1
+			Unknown 3D160D080400000000000000000000000000000000000000
+			Unknown 7F06001000000140
+			Unknown 85103008F000F00FF0359005853465649473331000000000000000006000054
+			Unknown 9606004096001000
+			Unknown DD180050F2020101800003A4000027A40000424350062322F00
+			Unknown DD06004096010104
+			Unknown DD050040960305
+			Unknown DD050040960B09
+			Unknown DD050040961401
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		64:F6:9D:B3:EA:B2
+Freqüència i canal: 	2.472 GHz (Channel 13)
+Senyal: 		-40 dBm  
+Qualitat: 		70/70
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			Aspy_Coorp
+Adreça MAC AP: 		00:1D:AA:1B:22:5C
+Freqüència i canal: 	2.462 GHz (Channel 11)
+Senyal: 		-69 dBm  
+Qualitat: 		41/70
+Xifrat:			Unknown 000A417370795F436F6F7270
+			Unknown 010882848B961224486C
+			Unknown 03010B
+			Unknown 2A0100
+			Unknown 32040C183060
+			Unknown 2D1A61017FFFF000001000000000000000000000000000000000000
+			Unknown 3D160B000100000000000000000000000000000000000000
+			802.11i/WPA2 Version 1
+			Unknown DD180050F2020101000003A4000027A40000424350062322F00
+			Unknown 0B0500002127A
+			Unknown 4A014000A002C01C800140005001900
+			Unknown 7F0101
+
+ESSID: 			AspySalud
+Adreça MAC AP: 		02:1D:AA:1B:22:5C
+Freqüència i canal: 	2.462 GHz (Channel 11)
+Senyal: 		-68 dBm  
+Qualitat: 		42/70
+Xifrat:			Unknown 00094173707953616C7564
+			Unknown 010882848B961224486C
+			Unknown 03010B
+			Unknown 2A0100
+			Unknown 32040C183060
+			Unknown 2D1A61017FFFF000001000000000000000000000000000000000000
+			Unknown 3D160B000100000000000000000000000000000000000000
+			802.11i/WPA2 Version 1
+			Unknown DD180050F2020101000003A4000027A40000424350062322F00
+			Unknown 0B0500002127A
+			Unknown 4A014000A002C01C800140005001900
+			Unknown 7F0101
+
+ESSID: 			- (Xarxa oculta)
+Adreça MAC AP: 		64:F6:9D:B3:EA:B1
+Freqüència i canal: 	2.472 GHz (Channel 13)
+Senyal: 		-39 dBm  
+Qualitat: 		70/70
+Xifrat:			Unknown 000100
+			Unknown 01061824B048606C
+			Unknown 03010D
+			Unknown 050700010401000000
+			Unknown 0706455320010D14
+			Unknown 0B050600148D5B
+			Unknown 2A0100
+			Unknown 2D1AAC191BFFFF000000000000000000000000000000000000000000
+			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+			Unknown 3D160D080400000000000000000000000000000000000000
+			Unknown 7F06001000000140
+			Unknown 85103008F000F00FF0359005853465649473331000000000000000006000054
+			Unknown 9606004096001000
+			Unknown DD180050F2020101800003A4000027A40000424350062322F00
+			Unknown DD06004096010104
+			Unknown DD050040960305
+			Unknown DD050040960B09
+			Unknown DD050040961401
+
+ESSID: 			eduroam
+Adreça MAC AP: 		00:25:84:23:04:90
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		-63 dBm  
+Qualitat: 		47/70
+Xifrat:			Unknown 0007656475726F616D
+			Unknown 01061824B048606C
+			Unknown 030101
+			Unknown 0706455320010D14
+			Unknown 0B050400118D5B
+			Unknown 2A0100
+			Unknown 2D1A2C181BFFFF000000000000000000000000000000000000000000
+			802.11i/WPA2 Version 1
+			Unknown 3D1601080400000000000000000000000000000000000000
+			Unknown 7F06001000000140
+			Unknown 85100008F000F00FF0359005853465649473233000000000000000004000036
+			Unknown 9606004096001100
+			Unknown DD180050F2020101800003A4000027A40000424350062322F00
+			Unknown DD06004096010104
+			Unknown DD050040960305
+			Unknown DD050040960B09
+			Unknown DD050040961401
+
+ESSID: 			eduroam
+Adreça MAC AP: 		64:F6:9D:4A:FB:70
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		-74 dBm  
+Qualitat: 		36/70
+Xifrat:			Unknown 0007656475726F616D
+			Unknown 01061824B048606C
+			Unknown 030101
+			Unknown 0706455320010D14
+			Unknown 0B050300188D5B
+			Unknown 2A0100
+			Unknown 2D1AAC191BFFFF000000000000000000000000000000000000000000
+			802.11i/WPA2 Version 1
+			Unknown 3D1601080400000000000000000000000000000000000000
+			Unknown 7F06001000000140
+			Unknown 85102008F000F00FF0359005853465649473135000000000000000003000054
+			Unknown 9606004096001000
+			Unknown DD180050F2020101800003A4000027A40000424350062322F00
+			Unknown DD06004096010104
+			Unknown DD050040960305
+			Unknown DD050040960B09
+			Unknown DD050040961401
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		64:F6:9D:4A:FB:72
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		-74 dBm  
+Qualitat: 		36/70
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		00:25:84:23:04:92
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		-66 dBm  
+Qualitat: 		44/70
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		64:F6:9D:4A:EB:82
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		-69 dBm  
+Qualitat: 		41/70
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			HP-Setup>48-M277 LaserJet
+Adreça MAC AP: 		6A:14:01:97:7B:48
+Freqüència i canal: 	2.437 GHz (Channel 6)
+Senyal: 		-61 dBm  
+Qualitat: 		49/70
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			eduroam
+Adreça MAC AP: 		00:24:97:88:04:10
+Freqüència i canal: 	2.432 GHz (Channel 5)
+Senyal: 		-71 dBm  
+Qualitat: 		39/70
+Xifrat:			Unknown 0007656475726F616D
+			Unknown 01061824B048606C
+			Unknown 030105
+			Unknown 0706455320010D14
+			Unknown 0B050C00218D5B
+			Unknown 2A0100
+			Unknown 2D1A2C181BFFFF000000000000000000000000000000000000000000
+			802.11i/WPA2 Version 1
+			Unknown 3D1605080400000000000000000000000000000000000000
+			Unknown 7F06001000000140
+			Unknown 85103008F000F00FF035900585346564947303900000000000000000C000036
+			Unknown 9606004096001100
+			Unknown DD180050F2020101800003A4000027A40000424350062322F00
+			Unknown DD06004096010104
+			Unknown DD050040960305
+			Unknown DD050040960B09
+			Unknown DD050040961401
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		00:24:97:88:04:12
+Freqüència i canal: 	2.432 GHz (Channel 5)
+Senyal: 		-71 dBm  
+Qualitat: 		39/70
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			BaixaMar
+Adreça MAC AP: 		F8:8E:85:55:8A:F5
+Freqüència i canal: 	2.442 GHz (Channel 7)
+Senyal: 		-88 dBm  
+Qualitat: 		22/70
+Xifrat:			Unknown 000842616978614D6172
+			Unknown 010882848B962430486C
+			Unknown 030107
+			Unknown 050400010000
+			Unknown 2A0104
+			Unknown 2F0104
+			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) PSK
+			Unknown 32040C121860
+			Unknown 0B050200310000
+			Unknown 2D1ABC1817FFFF000000000000000000000000000000000000000000
+			Unknown 3D1607080400000000000000000000000000000000000000
+			Unknown 7F03000008
+			Unknown DD180050F204104A00011010440001021049000600372A000120
+			Unknown DD090010180202000C0000
+			WPA Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) PSK
+
+ESSID: 			MOVISTAR_D38D
+Adreça MAC AP: 		84:AA:9C:9D:D3:8E
+Freqüència i canal: 	2.437 GHz (Channel 6)
+Senyal: 		-85 dBm  
+Qualitat: 		25/70
+Xifrat:			Unknown 000D4D4F5649535441525F44333844
+			Unknown 010882848B962430486C
+			Unknown 030106
+			Unknown 050402030000
+			Unknown 2A0100
+			Unknown 2F0100
+			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) PSK
+			Unknown 32040C121860
+			Unknown 0B0500001C0000
+			Unknown 2D1ABC181BFFFF000000000000000000000000000000000000000000
+			Unknown 3D1606081100000000000000000000000000000000000000
+			Unknown 7F080400080000000040
+			Unknown DD180050F204104A00011010440001021049000600372A000120
+			Unknown DD090010180200000C0000
+			Unknown DD180050F2020101880003A4000027A40000424350062322F00
+
+
+---------------- Data fi: 2019-06-18 12:57:21 ----------------

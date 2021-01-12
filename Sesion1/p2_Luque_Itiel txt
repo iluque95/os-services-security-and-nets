@@ -1,0 +1,57 @@
+Pràctica 1 - Sessió 2 - Configuració de les interfícies de xarxa Ethernet
+
+Pràctica 1 - Configuració de les interfícies de xarxa Ethernet
+
+1- Configurar les interfícies ethernet d'un servidor Debian. La interfície Ethernet s'ha de configurar tant de forma dinàmica com estàtica.
+
+2- Programar un script "informa_eth.sh" amb shell que proporcioni la següent informació en un fitxer de sortida "info_eth.txt".
+    - El format de sortida cal que sigui "nom dada:    valor"
+    - Dades de l'equip
+        Data
+        Usuaris humans
+        Nom de l'equip
+        Adreça IP del router
+        Adreça IP externa
+        Adreces IP dels DNS
+    - Dades de les interfícies de xarxa (per cada una)
+        Nom de la interfície
+        Adreça MAC
+        Si està connectada a una xarxa   
+            Adreça IP
+            Nom local de l'equip
+            Nom DNS de l'equip
+            Màscara de xarxa
+            Adreça de broadcast
+            Adreça de xarxa
+            Nom local de la xarxa
+            Nom DNS de la xarxa
+            MTU
+   
+3- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p2_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p2_cognom1_nom.zip.
+
+4- A títol orientatiu, el resultat de la pràctica cal que doni resposta a les següents qüestions:    
+
+[*]	- Com s’activa una interfície ethernet?
+[*]	- Com es desactiva una interfície ethernet?
+[*]	- Com es verifica l’estat actiu o desactiu d’una interfície ethernet?
+[*]	- Com es reanomena una interfície ethernet?
+[*]	- Com es verifica el nom d’una interfície ethernet?
+[*]	- Com es configura dinàmicament una interficie ethernet mitjançant fitxers de configuració?
+[*]	- Com es configura dinàmicament una interficie ethernet manualment?
+[*]	- Com es configura estàticament una interficie ethernet mitjançant fitxers de configuració?
+[*]	- Com es configura estàticament una interficie ethernet manualment?
+[*]	- Com es verifica la configuració  d’una interfície ethernet?
+[*]	- Com es configura el mode promiscu d’una interfície ethernet?
+[*]	- Com es verifica el mode promiscu d’una interfície ethernet?
+[*]	- Com es verifica l’adreça IP externa d’una interfície ethernet?
+[*]	- Com es configuren els noms, i àlies, de xarxa de l’equip?
+[*]	- Com es verifiquen els noms, i àlies, de xarxa de l’equip emmagatzemats localment en fitxers de configuració?
+[*]	- Com es verifiquen els noms, i àlies, de xarxa de l’equip emmagatzemats remotament en un DNS?
+[*]	- Com es configuren els noms, i àlies, de xarxa de les xarxes conegudes?
+[*]	- Com es verifiquen els noms, i àlies, de xarxa de les xarxes conegudes emmagatzemats localment en fitxers de configuració?
+[*]	- Com es verifiquen els noms, i àlies, de xarxa de les xarxes conegudes emmagatzemats remotament en un DNS?
+[]	- Quina bibliografia de referència descriu els conceptes anteriors?
+[*]	- Com es programa un scrip shell?
+[*]	- Quines precaucions cal prendre a l'hora d'executar un script shell?

@@ -1,0 +1,25 @@
+Pràctica 3 - Sessió 4 - Implementar un servei de xarxa privada virtual (VPN)
+
+Pràctica 3 - Sessió 4 - Implementar un servei de xarxa privada virtual (VPN)
+
+1- Configurar un servidor vpn amb les següents característiques:
+    - Treballi amb túnels SSL/TLS (openvpn).
+    - Utilizi clau compartida i certificats.
+    - Utilitzi el rang d'adreces ip 10.10.10.xx.
+
+2- Verificar el seu bon funcionament.   
+    - Configurar dos clients (1 màquina linux i 1 terminal mòbil) per verificar la connectivitat.
+    - Realitzar les captures de xarxa que validen el bon funcionament.
+
+3- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p3_s4_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p3_s4_cognom1_nom.zip.
+
+4- A títol orientatiu el resulat de la pràctica cal que doni resposta a les següents qüestions:
+[*]  - On es situen de l'escenari de la pràctica 8, el servidor VPN i els clients?
+[*]  - Quina és la configuració IP del servidor i els clients?
+[*]  - Cal instal·lar algun software per configurar un servidor i/o clients? Com s'instal·la?
+[*]  - Cal fer algun canvi a la configuració de routers/tallafocs? Quins?
+[*]  - Com es configura el servidor VPN? Diferencieu cas d'ús de clau compartida del de certificats
+[*]  - Com es configuren els client (Linux i mòbil)?
+[*]  - Com es comproba que la configuració del servei de VPNs es correcta? Diferencieu cas d'ús de clau compartida del de certificats

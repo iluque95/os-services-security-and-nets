@@ -1,0 +1,641 @@
+Pràctica 3 - Sessió 4 - Implementar un servei de xarxa privada virtual. (Luque Díaz Itiel)
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* OpenVPN (apt-get install openvpn)
+* EasyRsa (apt-get install easyrsa)
+
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/openvpn/server.conf			-->	Configuració del servidor openvpn.
+* /etc/openvpn/openvpn.conf			--> Configuració del client openvpn.
+
+
+# ESCENARI
+----------
+
+Recuperant l'escenari de la pràctica 2, aquest servidor VPN hauria estat en el propi router 1 o bé també podria haver estat
+en un dels servidors de la DMZ com a últim recurs, ja que, aquests estaven limitats només a servir DNS i SSH.
+
+Els clients a través d'Internet és podrien connectar a la VPN i accedir a tots els recursos necessaris especificant les rutes
+necessàries entre routers per poder arribar a on calgui.
+
+- Servidor VPN 			-->	192.168.56.113
+- Client VPN (Linux)	-->	192.168.56.115
+
+
+# COMANDES OPENVPN
+------------------
+
+* systemctl start openvpn				--> Inicialitza el demoni.
+* systemctl start openvpn@server		--> Carrega la configuració del servidor.
+* systemctl status openvpn*.service		--> Comprova l'estat del demoni.
+* systemctl enable openvpn				--> Configuració per a que es carregui a l'iniciar el sistema del client.
+* systemctl enable openvpn@server		--> Configuració per a que es carregui a l'iniciar el sistema del servidor.
+
+
+# CONSIDERACIONS
+----------------
+
+- Cada client tindrà el seu propi fitxer de configuració (.ovpn) amb les seves claus i paràmetres de configuració.
+- Cada dispositiu d'un mateix client, amb un mateix fitxer de configuració, tindrà diferents ips assignades pel servidor.
+- Per diferenciar clients, és necessari canviar les variables del certificat de cadascun d'ells.
+
+
+# DESCRIPCIÓ
+------------
+
+En aquest punt ja es té un ecosistema sòlid i funcional, però, en una xarxa local, on els recursos es poden accedir només si la
+persona es troba físicament en el mateix lloc dels serveis. Per poder fer servir aquests des d'un lloc geogràficament diferent
+és impossible fer-ho amb tots els serveis que implica estar connectat a una xarxa (ip, gateway, dns... etc) amb seguretat.
+En aquests casos, la millor opció es recorre a una VPN (Virtual Private Network) on ofereix tots aquests avantatges i a més
+autentica els paquets d'origen. Però, no tot és bo o dolent, hi ha un preu que s'ha de pagar per incloure el xifratge, paquets
+més grossos, més càlculs (xifratge), etc. Es pot balancejar les necessitats, bé només xifrant allò que hagi d'anar a parar al
+servidor on es troben els recursos o en altre cas xifrant-ho tot. En qualsevol dels casos, guanyarem estar connectats en una
+xarxa d'àrea local a través d'Internet.
+
+
+# CONFIGURACIÓ SERVIDOR OPENVPN
+-------------------------------
+
+OpenVPN ofereix configuració bàsica per facilitar a l'usuari, per això, es copiarà els fitxers:
+
+	root@esclavo1:/etc/openvpn# gunzip -c /usr/share/doc/openvpn/examples/sample-config-files/server.conf.gz > /etc/openvpn/server.conf
+	root@esclavo1:/etc/openvpn#
+
+En aquest punt, s'han d'especificar les claus i certificats que s'han generat perquè els faci servir el servidor:
+
+	root@esclavo1:/etc/openvpn# cat server.conf 
+	.
+	.
+	.
+	ca /etc/openvpn/certs/keys/certs/ca.crt
+	cert /etc/openvpn/certs/keys/server.crt
+	key /etc/openvpn/certs/keys/server.key  # This file should be kept secret
+	.
+	.
+	.
+	dh dh4096.pem
+	.
+	.
+	.
+	tls-auth /etc/openvpn/certs/keys/ta.key 0 # This file is secret
+	.
+	.
+	.
+	root@esclavo1:/etc/openvpn#
+
+Com a punt opcional, es pot reforçar la seguretat. És un pas important si es vol maximitzar la seguretat. En aquest cas, en l'escenari de proves
+no es necessari, però, es comentarà per si en un futur cal securitzar i prioritzar el xifrat. Cal buscar les seccions següents i ficar les directives:
+
+Reforça l'encriptació:
+
+	# Select a cryptographic cipher.
+	cipher AES-256-CBC
+
+Reforça l'autenticació dels usuaris:
+
+	# Auth Digest
+	auth SHA512
+
+Reforça el limit dels xifrats:
+
+	# Limit Ciphers
+	tls-cipher TLS-DHE-RSA-WITH-AES-256-GCM-SHA384:TLS-DHE-RSA-WITH-AES-128-GCM-SHA256:TLS-DHE-RSA-WITH-AES-256-CBC-SHA:TLS-DHE-RSA-WITH-CAMELLIA-256-CBC-SHA:TLS-DHE-RSA-WITH-AES-128-CBC-SHA:TLS-DHE-RSA-WITH-CAMELLIA-128-CBC-SHA
+
+Cal descomentar aquesta directiva per a redirigir el tràfic i el DNS:
+
+	root@esclavo1:/etc/openvpn# cat server.conf 
+	.
+	.
+	.
+	push "redirect-gateway def1 bypass-dhcp"
+	.
+	.
+	.
+	push "dhcp-option DNS 208.67.222.222"
+	push "dhcp-option DNS 208.67.220.220"
+	.
+	.
+	.
+	root@esclavo1:/etc/openvpn#
+
+Per assignar a cada dispositiu d'un client diferents ips, s'ha d'afegir una directiva que indica que un mateix client
+farà servir el mateix certificat per a tots els seus dispositius:
+
+	root@esclavo1:/etc/openvpn# cat server.conf 
+	.
+	.
+	.
+	duplicate-cn
+	.
+	.
+	.
+	root@esclavo1:/etc/openvpn#
+
+	NOTA: Per evitar això, caldria fer un certificat per a cada dispositiu encara que fos el mateix client.
+
+Es necessari activar el bit de forwarding:
+
+	root@esclavo1:/etc/openvpn/# echo 1 > /proc/sys/net/ipv4/ip_forward
+	root@esclavo1:/etc/openvpn/#
+
+Validació de la interfície:
+
+	root@esclavo1:/etc/openvpn# ip addr list tun0
+	4: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 100
+		link/none 
+		inet 10.8.0.1 peer 10.8.0.2/32 scope global tun0
+		   valid_lft forever preferred_lft forever
+		inet6 fe80::4aed:3dc5:3e60:2c73/64 scope link flags 800 
+		   valid_lft forever preferred_lft forever
+	root@esclavo1:/etc/openvpn#
+
+
+# CREACIÓ I CONFIGURACIÓ CA
+---------------------------
+
+Primerament s'ha de crear la ruta dels certificats en la carpeta de OpenVPN:
+
+	root@esclavo1:/usr/share/easy-rsa# make-cadir /etc/openvpn/certs
+	root@esclavo1:/usr/share/easy-rsa#
+
+S'ha de crear un soft link amb la configuració més actualitzada en la carpeta creada previament:
+
+	root@esclavo1:/etc/openvpn/certs# ln -s openssl-1.0.0.cnf openssl.cnf
+	root@esclavo1:/etc/openvpn/certs#
+
+Cal modificar les variables i ajustar-les a les dades amb les que es volen validar els certificats:
+
+	root@esclavo1:/usr/share/easy-rsa# cat vars | grep "KEY_"
+	export KEY_CONFIG=`$EASY_RSA/whichopensslcnf $EASY_RSA`
+	export KEY_DIR="$EASY_RSA/keys"
+	echo NOTE: If you run ./clean-all, I will be doing a rm -rf on $KEY_DIR
+	export KEY_SIZE=2048
+	export KEY_EXPIRE=3650
+	export KEY_COUNTRY="ES"
+	export KEY_PROVINCE="BCN"
+	export KEY_CITY="Vilanova i la Geltrú"
+	export KEY_ORG="Universitat Politècnica de Catalunya"
+	export KEY_EMAIL="itiel@admin.com"
+	export KEY_OU="Seguretat i Administració de Xarxes"
+	export KEY_NAME="EasyRSA"
+	# If you'd like to sign all keys with the same Common Name, uncomment the KEY_CN export below
+	# export KEY_CN="CommonName"
+	root@esclavo1:/usr/share/easy-rsa#
+
+S'han de validar, és a dir, tornar a carregar i netejar la configuració que hi ha previament:
+
+	root@esclavo1:/etc/openvpn/certs# source ./vars
+	NOTE: If you run ./clean-all, I will be doing a rm -rf on /etc/openvpn/certs/keys
+	root@esclavo1:/etc/openvpn/certs#
+
+	root@esclavo1:/etc/openvpn/certs# ./clean-all
+	root@esclavo1:/etc/openvpn/certs#
+
+Ja es pot construir la entitat certificadora amb els paràmetres que s'han configurat. Deixar en buit per utilitzar-los:
+
+	root@esclavo1:/etc/openvpn/certs# ./build-ca 
+	Generating a RSA private key
+	........+++++
+	................+++++
+	writing new private key to 'ca.key'
+	-----
+	You are about to be asked to enter information that will be incorporated
+	into your certificate request.
+	What you are about to enter is what is called a Distinguished Name or a DN.
+	There are quite a few fields but you can leave some blank
+	For some fields there will be a default value,
+	If you enter '.', the field will be left blank.
+	-----
+	Country Name (2 letter code) [ES]:
+	State or Province Name (full name) [BCN]:
+	Locality Name (eg, city) [Vilanova i la Geltrú]:
+	Organization Name (eg, company) [Universitat Politècnica de Catalunya]:
+	Organizational Unit Name (eg, section) [Seguretat i Administració de Xarxes]:
+	Common Name (eg, your name or your server's hostname) [Universitat Politècnica de Catalunya CA]:
+	Name [EasyRSA]:
+	Email Address [itiel@admin.com]:
+	root@esclavo1:/etc/openvpn/certs#
+
+Es necessari crear un certificat per validar el servidor CA i signar-lo:
+
+	root@esclavo1:/etc/openvpn/certs# ./build-key-server server
+	Generating a RSA private key
+	..+++++
+	........................................................................................................................................................+++++
+	writing new private key to 'server.key'
+	-----
+	You are about to be asked to enter information that will be incorporated
+	into your certificate request.
+	What you are about to enter is what is called a Distinguished Name or a DN.
+	There are quite a few fields but you can leave some blank
+	For some fields there will be a default value,
+	If you enter '.', the field will be left blank.
+	-----
+	Country Name (2 letter code) [ES]:
+	State or Province Name (full name) [BCN]:
+	Locality Name (eg, city) [Vilanova i la Geltrú]:
+	Organization Name (eg, company) [Universitat Politècnica de Catalunya]:
+	Organizational Unit Name (eg, section) [Seguretat i Administració de Xarxes]:
+	Common Name (eg, your name or your server's hostname) [server]:
+	Name [EasyRSA]:
+	Email Address [itiel@admin.com]:
+
+	Please enter the following 'extra' attributes
+	to be sent with your certificate request
+	A challenge password []:
+	An optional company name []:
+	Using configuration from /etc/openvpn/certs/openssl.cnf
+	Can't open /etc/openvpn/certs/keys/index.txt.attr for reading, No such file or directory
+	140575243108416:error:02001002:system library:fopen:No such file or directory:../crypto/bio/bss_file.c:74:fopen('/etc/openvpn/certs/keys/index.txt.attr','r')
+	140575243108416:error:2006D080:BIO routines:BIO_new_file:no such file:../crypto/bio/bss_file.c:81:
+	Check that the request matches the signature
+	Signature ok
+	The Subject's Distinguished Name is as follows
+	countryName           :PRINTABLE:'ES'
+	stateOrProvinceName   :PRINTABLE:'BCN'
+	localityName          :T61STRING:'Vilanova i la Geltr\0xFFFFFFC3\0xFFFFFFBA'
+	organizationName      :T61STRING:'Universitat Polit\0xFFFFFFC3\0xFFFFFFA8cnica de Catalunya'
+	organizationalUnitName:T61STRING:'Seguretat i Administraci\0xFFFFFFC3\0xFFFFFFB3 de Xarxes'
+	commonName            :PRINTABLE:'server'
+	name                  :PRINTABLE:'EasyRSA'
+	emailAddress          :IA5STRING:'itiel@admin.com'
+	Certificate is to be certified until May 20 09:24:14 2029 GMT (3650 days)
+	Sign the certificate? [y/n]:y
+
+
+	1 out of 1 certificate requests certified, commit? [y/n]y
+	Write out database with 1 new entries
+	Data Base Updated
+	root@esclavo1:/etc/openvpn/certs#
+
+Per intercanviar les claus entre client i servidor és necessari crear un certificat per utilitzar Diffie-Hellman:
+
+	root@esclavo1:/etc/openvpn/certs# openssl dhparam 4096 > /etc/openvpn/dh4096.pem
+	Generating DH parameters, 4096 bit long safe prime, generator 2
+	This is going to take a long time
+	.
+	.
+	.
+	root@esclavo1:/etc/openvpn/certs#
+
+Per autenticar els paquets que s'intercanvien entre màquines i només acceptar aquells que es coneixen, s'ha de crear una clau HMAC per autenticar-los:
+
+	root@esclavo1:/etc/openvpn/certs# openvpn --genkey --secret /etc/openvpn/certs/keys/ta.key
+	root@esclavo1:/etc/openvpn/certs#
+
+
+# GENERACIÓ FITXER DE CONFIGURACIÓ .OVPN
+----------------------------------------
+
+S'ha de situar-se'n en la carpeta dels certificats i actualitzar les variables per a signar un certificat per als clients:
+
+	root@esclavo1:/etc/openvpn# cd /etc/openvpn/certs
+	root@esclavo1:/etc/openvpn/certs#
+
+	root@esclavo1:/etc/openvpn/certs# source ./vars
+	root@esclavo1:/etc/openvpn/certs#
+
+Signatura del certificat per al primer client:
+
+	root@esclavo1:/etc/openvpn/certs# ./build-key firstclient
+	Generating a RSA private key
+	...................................................+++++
+	............+++++
+	writing new private key to 'firstclient.key'
+	-----
+	You are about to be asked to enter information that will be incorporated
+	into your certificate request.
+	What you are about to enter is what is called a Distinguished Name or a DN.
+	There are quite a few fields but you can leave some blank
+	For some fields there will be a default value,
+	If you enter '.', the field will be left blank.
+	-----
+	Country Name (2 letter code) [ES]:
+	State or Province Name (full name) [BCN]:
+	Locality Name (eg, city) [Vilanova i la Geltrú]:
+	Organization Name (eg, company) [Universitat Politècnica de Catalunya]:
+	Organizational Unit Name (eg, section) [Seguretat i Administració de Xarxes]:
+	Common Name (eg, your name or your server's hostname) [firstclient]:
+	Name [EasyRSA]:
+	Email Address [itiel@admin.com]:
+
+	Please enter the following 'extra' attributes
+	to be sent with your certificate request
+	A challenge password []:
+	An optional company name []:
+	Using configuration from /etc/openvpn/certs/openssl.cnf
+	Check that the request matches the signature
+	Signature ok
+	The Subject's Distinguished Name is as follows
+	countryName           :PRINTABLE:'ES'
+	stateOrProvinceName   :PRINTABLE:'BCN'
+	localityName          :T61STRING:'Vilanova i la Geltr\0xFFFFFFC3\0xFFFFFFBA'
+	organizationName      :T61STRING:'Universitat Polit\0xFFFFFFC3\0xFFFFFFA8cnica de Catalunya'
+	organizationalUnitName:T61STRING:'Seguretat i Administraci\0xFFFFFFC3\0xFFFFFFB3 de Xarxes'
+	commonName            :PRINTABLE:'firstclient'
+	name                  :PRINTABLE:'EasyRSA'
+	emailAddress          :IA5STRING:'itiel@admin.com'
+	Certificate is to be certified until May 20 15:21:23 2029 GMT (3650 days)
+	Sign the certificate? [y/n]:y
+
+
+	1 out of 1 certificate requests certified, commit? [y/n]y
+	Write out database with 1 new entries
+	Data Base Updated
+	root@esclavo1:/etc/openvpn/certs#
+
+S'ha de crear un directori on ficar la configuració que es transferirá al client:
+
+	root@esclavo1:/etc/openvpn/certs# mkdir /etc/openvpn/clients
+	root@esclavo1:/etc/openvpn/certs#
+
+Així com es va copiar la configuració bàsica al servidor, també es farà per al client:
+
+	root@esclavo1:/etc/openvpn/certs# cp /usr/share/doc/openvpn/examples/sample-config-files/client.conf /etc/openvpn/clients/client.ovpn
+	root@esclavo1:/etc/openvpn/certs#
+
+Es crearà un script per incloure els certificats i claus necessaris en el mateix fitxer de configuració del client (.ovpn):
+
+	#!/bin/bash
+
+	echo "key-direction 1" >> client.ovpn
+	echo "<ca>" >> client.ovpn
+	sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' < ../certs/keys/ca.crt >> client.ovpn
+	echo "</ca>" >> client.ovpn
+	echo "<cert>" >> client.ovpn
+	sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' < ../certs/keys/firstclient.crt >> client.ovpn
+	echo "</cert>" >> client.ovpn
+	echo "<key>" >> client.ovpn
+	sed -n '/BEGIN PRIVATE KEY/,/END PRIVATE KEY/p' < ../certs/keys/firstclient.key >> client.ovpn
+	echo "</key>" >> client.ovpn
+	echo "</tls-auth>" >> client.ovpn
+	sed -n '/-----BEGIN OpenVPN Static key V1-----/,/-----BEGIN OpenVPN Static key V1-----/p' < ../certs/keys/ta.key >> client.ovpn
+	echo "</tls-auth>" >> client.ovpn
+
+Resultat del fitxer de configuració del client que ha de fer servir per poder connectar-se al servidor VPN:
+
+	root@esclavo1:/etc/openvpn/clients# cat client.ovpn | grep -v ";" | grep -v "#"
+	client
+	dev tun
+	proto udp
+	remote 192.168.56.113 1194
+	resolv-retry infinite
+	nobind
+	user nobody
+	group nogroup
+	persist-key
+	persist-tun
+	#ca ca.crt
+	#cert client.crt
+	#key client.key
+	remote-cert-tls server
+	#tls-auth ta.key 1
+	cipher AES-256-CBC
+	verb 3
+	key-direction 1
+	<ca>
+	-----BEGIN CERTIFICATE-----
+	MIIF8jCCBNqgAwIBAgIJAO7rYtR3Uiv5MA0GCSqGSIb3DQEBCwUAMIH/MQswCQYD
+	VQQGEwJFUzEMMAoGA1UECBMDQkNOMR4wHAYDVQQHFBVWaWxhbm92YSBpIGxhIEdl
+	bHRyw7oxLjAsBgNVBAoUJVVuaXZlcnNpdGF0IFBvbGl0w6hjbmljYSBkZSBDYXRh
+	bHVueWExLTArBgNVBAsUJFNlZ3VyZXRhdCBpIEFkbWluaXN0cmFjacOzIGRlIFhh
+	cnhlczExMC8GA1UEAxQoVW5pdmVyc2l0YXQgUG9saXTDqGNuaWNhIGRlIENhdGFs
+	dW55YSBDQTEQMA4GA1UEKRMHRWFzeVJTQTEeMBwGCSqGSIb3DQEJARYPaXRpZWxA
+	YWRtaW4uY29tMB4XDTE5MDUyMzA5MTQ1NloXDTI5MDUyMDA5MTQ1Nlowgf8xCzAJ
+	BgNVBAYTAkVTMQwwCgYDVQQIEwNCQ04xHjAcBgNVBAcUFVZpbGFub3ZhIGkgbGEg
+	R2VsdHLDujEuMCwGA1UEChQlVW5pdmVyc2l0YXQgUG9saXTDqGNuaWNhIGRlIENh
+	dGFsdW55YTEtMCsGA1UECxQkU2VndXJldGF0IGkgQWRtaW5pc3RyYWNpw7MgZGUg
+	WGFyeGVzMTEwLwYDVQQDFChVbml2ZXJzaXRhdCBQb2xpdMOoY25pY2EgZGUgQ2F0
+	YWx1bnlhIENBMRAwDgYDVQQpEwdFYXN5UlNBMR4wHAYJKoZIhvcNAQkBFg9pdGll
+	bEBhZG1pbi5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDD6DHU
+	0dO2FQU5ADh9/pBc8uP81Xe6KCeOJFM4r9LQKBpyIKKweLMAGCN2dfJhVEA7c+fW
+	p++pL5BBnSdQ6qMsgJrUc/vxU+HfLu5its7ew/PU18Kzh3yTN5n89QQeWANPcqaL
+	RQ9Ej1twSgMfOD8H6iEcKlLO7WdYW0EsbyvG1GdRe+wY0rGmyKO0wK2KVFadpu7a
+	8C1S/HMkcZxLljmgmZNi8HUUh8wXpI+M7OLJR8AuHFeysa9K4KheUw8Ovw0Qmzcw
+	ocn2eJ29eRKOiGLjFCq15uQtkt7I5opAfD9jAZ9gvI8TJKAcNBMdO5njSeobb2bS
+	ypfONBooRCPBn1hnAgMBAAGjggFtMIIBaTAdBgNVHQ4EFgQUVlp9SFDmS44BJXr+
+	cfFqXpVAHlgwggE4BgNVHSMEggEvMIIBK4AUVlp9SFDmS44BJXr+cfFqXpVAHlih
+	ggEGpIIBAjCB/zELMAkGA1UEBhMCRVMxDDAKBgNVBAgTA0JDTjEeMBwGA1UEBxQV
+	VmlsYW5vdmEgaSBsYSBHZWx0csO6MS4wLAYDVQQKFCVVbml2ZXJzaXRhdCBQb2xp
+	dMOoY25pY2EgZGUgQ2F0YWx1bnlhMS0wKwYDVQQLFCRTZWd1cmV0YXQgaSBBZG1p
+	bmlzdHJhY2nDsyBkZSBYYXJ4ZXMxMTAvBgNVBAMUKFVuaXZlcnNpdGF0IFBvbGl0
+	w6hjbmljYSBkZSBDYXRhbHVueWEgQ0ExEDAOBgNVBCkTB0Vhc3lSU0ExHjAcBgkq
+	hkiG9w0BCQEWD2l0aWVsQGFkbWluLmNvbYIJAO7rYtR3Uiv5MAwGA1UdEwQFMAMB
+	Af8wDQYJKoZIhvcNAQELBQADggEBAHrwo6CT/32QS/GZhPmkr5z2JfwRsFaakrnA
+	HDR9ESp9NbYoRtP28CchYhPfWUnTf/c7keL8PQRoylTKnFj/GwUvCxQ/DbUavGQz
+	Y/FdFw0BJ7XNm1vhkugztJeK9ISS0CFfuGPUH4aCbGcdDRENfbEXDoAMQUgpJ5nl
+	oDJAAiG3MgjFPNQY3o+QWNvqsXy9s7jBgE7JL/2zLmGrJ4nBHBsv5nNhuSFAIgz0
+	kVRsA2gUdxqdmyvoxzQHzmjUXT1JdZ1pKFMJVpl1F4OBT9pTurBlvtC5MPl5O6GI
+	OIwkuh2vqLvgW/xCoaxgwDUTVnEd5kd7eY9bBft849yeX3gdtQw=
+	-----END CERTIFICATE-----
+	</ca>
+	<cert>
+	-----BEGIN CERTIFICATE-----
+	MIIGMzCCBRugAwIBAgIBAjANBgkqhkiG9w0BAQsFADCB/zELMAkGA1UEBhMCRVMx
+	DDAKBgNVBAgTA0JDTjEeMBwGA1UEBxQVVmlsYW5vdmEgaSBsYSBHZWx0csO6MS4w
+	LAYDVQQKFCVVbml2ZXJzaXRhdCBQb2xpdMOoY25pY2EgZGUgQ2F0YWx1bnlhMS0w
+	KwYDVQQLFCRTZWd1cmV0YXQgaSBBZG1pbmlzdHJhY2nDsyBkZSBYYXJ4ZXMxMTAv
+	BgNVBAMUKFVuaXZlcnNpdGF0IFBvbGl0w6hjbmljYSBkZSBDYXRhbHVueWEgQ0Ex
+	EDAOBgNVBCkTB0Vhc3lSU0ExHjAcBgkqhkiG9w0BCQEWD2l0aWVsQGFkbWluLmNv
+	bTAeFw0xOTA1MjMxNTIxMjNaFw0yOTA1MjAxNTIxMjNaMIHiMQswCQYDVQQGEwJF
+	UzEMMAoGA1UECBMDQkNOMR4wHAYDVQQHFBVWaWxhbm92YSBpIGxhIEdlbHRyw7ox
+	LjAsBgNVBAoUJVVuaXZlcnNpdGF0IFBvbGl0w6hjbmljYSBkZSBDYXRhbHVueWEx
+	LTArBgNVBAsUJFNlZ3VyZXRhdCBpIEFkbWluaXN0cmFjacOzIGRlIFhhcnhlczEU
+	MBIGA1UEAxMLZmlyc3RjbGllbnQxEDAOBgNVBCkTB0Vhc3lSU0ExHjAcBgkqhkiG
+	9w0BCQEWD2l0aWVsQGFkbWluLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCC
+	AQoCggEBAN2WLqchUtump4ruYg/XANvUeuvYBA+Zxawm/m/OTpldDUevYtSLc9zb
+	0YiYOIuK0P07J8xzndPnx4tkp6kj8RMPWUWA+y7+CE60eeNyXGSta0ZNdFYa7MEN
+	VQOrCyR1ACvy5SIjmBcCZzBGPHqFBPT0+67T7JkwDoEJomuUXTSCqOJuqD//cd6t
+	CPv3aWF7DKDnidLzOLerqtwUxGsm3XKepVf5XbNWqG0yj65WuItOhGqecUnRNAhc
+	/f52/FQt+Ii6mhHUC78PCWjOE16N3TjNGEBKBHNPqz8U0l40dkcKZAMOjjKvR+vy
+	QWzua78ZrvlYHJ9evBSZ9guK9va3kr0CAwEAAaOCAdMwggHPMAkGA1UdEwQCMAAw
+	LQYJYIZIAYb4QgENBCAWHkVhc3ktUlNBIEdlbmVyYXRlZCBDZXJ0aWZpY2F0ZTAd
+	BgNVHQ4EFgQUEWbuokcc4qBks/im36/em/ZabfAwggE4BgNVHSMEggEvMIIBK4AU
+	Vlp9SFDmS44BJXr+cfFqXpVAHlihggEGpIIBAjCB/zELMAkGA1UEBhMCRVMxDDAK
+	BgNVBAgTA0JDTjEeMBwGA1UEBxQVVmlsYW5vdmEgaSBsYSBHZWx0csO6MS4wLAYD
+	VQQKFCVVbml2ZXJzaXRhdCBQb2xpdMOoY25pY2EgZGUgQ2F0YWx1bnlhMS0wKwYD
+	VQQLFCRTZWd1cmV0YXQgaSBBZG1pbmlzdHJhY2nDsyBkZSBYYXJ4ZXMxMTAvBgNV
+	BAMUKFVuaXZlcnNpdGF0IFBvbGl0w6hjbmljYSBkZSBDYXRhbHVueWEgQ0ExEDAO
+	BgNVBCkTB0Vhc3lSU0ExHjAcBgkqhkiG9w0BCQEWD2l0aWVsQGFkbWluLmNvbYIJ
+	AO7rYtR3Uiv5MBMGA1UdJQQMMAoGCCsGAQUFBwMCMAsGA1UdDwQEAwIHgDAWBgNV
+	HREEDzANggtmaXJzdGNsaWVudDANBgkqhkiG9w0BAQsFAAOCAQEAID0Aq8poNiwG
+	tIN89Y+fpPxsWy8Q3Opk0QsC19/D+60D5KX5v1Eq88+fvmkkxiJJAjpYD+LRTn4E
+	sWvQL0YsmKqLlkdXs0yHIjnuzkpGEI5bnBXqrO0Rd8Q9LVqloIa23PNDRQzpU1Hh
+	6frEGgwZ2DDDe2DoT/uC2gf087ThsPCHqZntUrCnIRFurww1Vq3fi70zaq7OeXF3
+	30LC9Dt/lXPQIFaUUVge9eAqNANIuFtPxaVp/fp4MN6d9w0uoFKipxW/gEULYl1r
+	3YHzIcjfMuzoGgdgpuJa8Nq4LJs5qwjIScAxlF6LkQY51dlu1IVLdZm7tHqqPjeY
+	yla371I10Q==
+	-----END CERTIFICATE-----
+	</cert>
+	<key>
+	-----BEGIN PRIVATE KEY-----
+	MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDdli6nIVLbpqeK
+	7mIP1wDb1Hrr2AQPmcWsJv5vzk6ZXQ1Hr2LUi3Pc29GImDiLitD9OyfMc53T58eL
+	ZKepI/ETD1lFgPsu/ghOtHnjclxkrWtGTXRWGuzBDVUDqwskdQAr8uUiI5gXAmcw
+	Rjx6hQT09Puu0+yZMA6BCaJrlF00gqjibqg//3HerQj792lhewyg54nS8zi3q6rc
+	FMRrJt1ynqVX+V2zVqhtMo+uVriLToRqnnFJ0TQIXP3+dvxULfiIupoR1Au/Dwlo
+	zhNejd04zRhASgRzT6s/FNJeNHZHCmQDDo4yr0fr8kFs7mu/Ga75WByfXrwUmfYL
+	ivb2t5K9AgMBAAECggEBAJ+jZgL0aAxk+UmHSlCdFjpJzzEAVJSktRu8kAwettOY
+	jUu62FnGCffwyfk9qWcm4D/AEYEjPm5/CmyrXHrnsPOJWEhRjyUg0P1a2oF5T4Uc
+	xy9D9+9cwHqozzmwTXu7ax8+g8Nfn1/cVFkcENA36wVLRdODTG5kh96BAWm93pRH
+	wk/6FgqvtzdQ8msS7ykVTXlrXZ/95MP3ADwDfyWjVAAe3OY7ODUNHTRyezCAeUB6
+	Xyw17ndvGEdCSuw+CUWBdXZHy1/rSXax4ajvaz5KRnC34C1FAcvr03oYfaqMswgI
+	pAonUDfOG1a3R4vy2iy+fGt8gD+Ic192ROoK+H4c+UECgYEA974zxPlVZGoUusaf
+	t6WJQRi4Lw4XuHOz4fUP7lADEpiAbPHc7t19dBnonTKj+RFdLrGugCN4IRaHdmqr
+	iS0MRkhEaKPtT0fOshA8yhEflh8sRwjG04wbeBtV35HHiDqgyyLo3zu8vLJIUf32
+	NUk1ufLdt/wkjZFJmCVWs+m7bu0CgYEA5PjO9nGtqKIRhBCmYfA7WNHyYkVmR1Gm
+	HhDXHJjGpPBdguLItZoV2oMfnTjlQVmTTCejRs3+ShyVYYBH+Wd53RvXDyA2Ewc7
+	Fzy22Vm4OtzYhgSsu+x7R7SqWf1sFLV2KNjindzs66KIa6JV41fl06tVqRRTlvfm
+	W+9NirUeaRECgYEAjqg900zn+RyEt1Cso+l0ccG0PZRV4GbvzEt7UvVL76dVPGbB
+	m+J63SIWKn8AoOl4yOyT2UGTaSo58txVznXcPZRboA3VFvP4d9yVxJ27nIxyyKyr
+	ISHqp2zGNCkTxsRL1u1RP0p80gOvVVdyMRjpERxixBEzUzm4MR4/IPaUcbkCgYBP
+	MYsLi9ffamaagdO6LgeoubyWpqAwbJoC7hoohuK1q3j8SwnWXbvPPujRTRtl1eBv
+	R4pec+LOqUI1XdQG+/YXNojUb3SkcizK5bHsTO6+VSICgF1qBenBrEf7Jf6azwRW
+	LmV66i17dlSuvY/tOLqB0lGnUCN1JLqk84ijP++LsQKBgQCHgCUzJiQKn1xUxe7n
+	vANrOb53u7oqtL+cRoulA/BdeJapOh9vLyVCg2eIQxG7InR+fDQkS+s4pGkPEFL8
+	EQiJwVJZZJs/XYu8Trh37LOHMihdqQjfzc1POAhfR6PPJECcUpJC2zULqbssaOpr
+	jQIcnKWShka/H65PP2e7YJ/FPw==
+	-----END PRIVATE KEY-----
+	</key>
+	<tls-auth>
+	-----BEGIN OpenVPN Static key V1-----
+	0a9845e091cb7d832bab1c11aec3e26a
+	1a440f50ea4a5564d783a94e1d1583fa
+	5275ce312cf04cec092345e421bb0ad1
+	7f8280a93ccf1a62fdc25c9fbd1ef3e9
+	0e00749f32055a9b1aba154c8f7103a8
+	e39e89042ca709cb94e68b50b5b33d0a
+	963b847d72335cf57beaf29ff9bf7e8d
+	67547aa4dde5a24460bb03d15cb0d7b7
+	a3351d6fdc7df81ca39b66b88fd9a682
+	db76b0b3c5fdf8bad6ff2d8410669c02
+	99bbff47c2a9ea2599c1a409e791fec8
+	ded71dca7c72196b1cabcdd15776ce58
+	1d2d587866d9353207968cafe6631192
+	11acc8fd6a4c0b398ee584f3b8a95a74
+	e3f09dfea4f6f4f6316d35f6e15e69a8
+	a60a15bad54bd976a8baeb9195fd586c
+	-----END OpenVPN Static key V1-----
+	</tls-auth>
+	root@esclavo1:/etc/openvpn/clients#
+
+	NOTA: key-direction 1 és el valor de #tls-auth ta.key 1. S'ha de possar així quan s'insereix els certificat tls en el fitxer .ovpn.
+	NOTA2: En aquest punt, ja es pot distribuir el fitxer de configuració al client i pot connectar-se important-lo en la aplicació
+		   del mòbil o en un Desktop-client per Linux, Windows o Mac.
+
+
+# CONFIGURACIÓ CLIENT LINUX OPENVPN
+-----------------------------------
+
+Es torna a insistir que, un cop s'ha generat el fitxer .ovpn, important-lo ja funciona correctment si tots els paràmetres
+i la configuració és bona.
+
+Instal·lar el client de openvpn:
+
+	$ apt install openvpn
+
+S'ha de passar el fitxer .ovpn generat per al client i moure'l en /etc/openvpn i renombrar-lo:
+
+	root@seax:~# mv client.ovpn /etc/openvpn/openvpn.conf
+	root@seax:~#
+
+Encendre el dimoni i fer que arrenqui al iniciar la màquina:
+
+	root@seax:~# systemctl start openvpn
+	root@seax:~#
+
+	root@seax:~# systemctl enable openvpn
+	Synchronizing state of openvpn.service with SysV service script with /lib/systemd/systemd-sysv-install.
+	Executing: /lib/systemd/systemd-sysv-install enable openvpn
+	root@seax:~#
+
+Reinicialitzar la màquina amb un reboot:
+
+	root@seax:~# reboot
+	root@seax:~#	
+
+Validació de la interfície tunnel de la VPN aixecada i rebent ip:
+
+	root@seax:~# ip addr list tun0
+	4: tun0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 100
+		link/none 
+		inet 10.8.0.6 peer 10.8.0.5/32 scope global tun0
+		   valid_lft forever preferred_lft forever
+		inet6 fe80::1a6f:4b88:1d45:47d9/64 scope link flags 800 
+		   valid_lft forever preferred_lft forever
+	root@seax:~#
+
+Es pot veure en la taula d'encaminament com s'ha afegit la ruta del tunnel de la VPN:
+
+	root@seax:~# ip r
+	0.0.0.0/1 via 10.8.0.5 dev tun0 
+	default via 10.0.2.2 dev enp0s3 
+	10.0.2.0/24 dev enp0s3 proto kernel scope link src 10.0.2.15 
+	10.8.0.1 via 10.8.0.5 dev tun0 
+	10.8.0.5 dev tun0 proto kernel scope link src 10.8.0.6 
+	128.0.0.0/1 via 10.8.0.5 dev tun0 
+	192.168.56.0/24 dev enp0s8 proto kernel scope link src 192.168.56.115 
+	192.168.56.113 via 10.0.2.2 dev enp0s3 
+	root@seax:~#
+
+
+# SEGURETAT
+-----------
+
+La política per defecte és maximitzar la seguretat.
+
+Permetre tràfic local entre la pròpia màquina:
+
+	iptables -A INPUT -i lo -j ACCEPT
+	iptables -A INPUT ! -i lo -s 127.0.0.0/8 -j REJECT
+	iptables -A OUTPUT -o lo -j ACCEPT
+
+Permetre pings:
+
+	iptables -A INPUT -p icmp -m state --state NEW --icmp-type 8 -j ACCEPT
+	iptables -A INPUT -p icmp -m state --state ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -p icmp -j ACCEPT
+
+Permetre tràfic de la VPN:
+
+	iptables -A INPUT -i enp0s3 -p udp -m state --state NEW,ESTABLISHED --dport 1194 -j ACCEPT
+	iptables -A OUTPUT -o enp0s3 -p udp -m state --state ESTABLISHED --sport 1194 -j ACCEPT
+
+	NOTA: S'ha espicificat el port i protocol per defecte.
+
+Permetre consultes DNS:
+
+	iptables -A INPUT -i enp0s3 -p udp -m state --state ESTABLISHED --sport 53 -j ACCEPT
+	iptables -A OUTPUT -o enp0s3 -p udp -m state --state NEW,ESTABLISHED --dport 53 -j ACCEPT
+	iptables -A INPUT -i enp0s3 -p tcp -m state --state ESTABLISHED --sport 53 -j ACCEPT
+	iptables -A OUTPUT -o enp0s3 -p tcp -m state --state NEW,ESTABLISHED --dport 53 -j ACCEPT
+
+Permetre protocols HTTP i HTTPS per poder navegar i actualitzar paquets:
+
+	iptables -A INPUT -i enp0s3 -p tcp -m state --state ESTABLISHED --sport 80 -j ACCEPT
+	iptables -A INPUT -i enp0s3 -p tcp -m state --state ESTABLISHED --sport 443 -j ACCEPT
+	iptables -A OUTPUT -o enp0s3 -p tcp -m state --state NEW,ESTABLISHED --dport 80 -j ACCEPT
+	iptables -A OUTPUT -o enp0s3 -p tcp -m state --state NEW,ESTABLISHED --dport 443 -j ACCEPT
+
+Permetre tràfic per el tunnel de la VPN:
+
+	iptables -A INPUT -i tun0 -j ACCEPT
+	iptables -A FORWARD -i tun0 -j ACCEPT
+	iptables -A OUTPUT -o tun0 -j ACCEPT
+
+Cal fer un forwarding del tràfic entre la interfície virtual del tunnel i la física:
+
+	iptables -A FORWARD -i tun0 -o enp0s3 -s 10.8.0.0/24 -j ACCEPT
+	iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+Per ultim i molt important, s'ha de natejar les ips de la VPN:
+
+	iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o enp0s3 -j MASQUERADE

@@ -1,0 +1,309 @@
+Pràctica 1 - Sessió 2 - Configuració de les interfícies de xarxa Ethernet. (Luque Díaz, Itiel)
+
+
+# INDEX
+-------
+
+(*) PROGRAMARI NECESSARI..............................18
+(*) FITXERS RELACIONATS...............................26
+(*) DESCRIPCIÓ........................................38
+(*) ACTIVACIÓ/DESACTIVACIÓ D'INTERFÍCIES..............51
+(*) REANOMENAMENT D'UNA INTERFÍCIE....................74
+(*) CONFIGURACIÓ DE LES INTERFÍCIES..................120
+(*) CONÈIXER IP EXTERNA..............................204
+(*) RESOLUCIÓ DE NOMS................................245
+(*) PROGRAMAR UN SHELL SCRIPT........................294
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Gestor de textos
+* Shell bash
+* Comanda dig (apt-get install dnsutils)
+
+
+# FITXERS RELACIONATS
+---------------------
+
+* /etc/network/interfaces						-->	Configuració de les interfícies
+* /etc/hostname									-->	Nom de l'equip en la xarxa
+* /etc/resolv.conf								-->	Servidors DNS i nom de la xarxa
+* /etc/passwd									-->	Usuaris del sistema
+* /etc/udev/rules.d/70-persistent-net.rules		--> Configuracions permanents de xarxa
+* /etc/networks									--> Nom de les xarxes conegudes
+* /etc/hosts									--> Hosts coneguts amb el seu dns
+
+
+# DESCRIPCIÓ
+------------
+
+De vegades és necessari mantenir un recull d'informació sobre l'equip i la xarxa on
+s'està treballant, per saber que està succeïnt en l'entorn i poder guarantir un correcte
+funcionament d'aquesta.
+Altres cops, potser, es vol detectar errors en aquells punts més crítics que amb un simple
+script es poden fer en qüestió de pocs minuts.
+En aquesta sessió s'aprendrà a realitzar un shell scripten bash on tractarà aquests temes,
+cercant l'informació i recullint-la per a què l'administrador pugui analitzar-la i extreure
+conclusions a partir dels resultats.
+
+
+# ACTIVACIÓ/DESACTIVACIÓ D'INTERFÍCIES
+--------------------------------------
+
+Per mostrar les interfícies que están actives encara que no estiguin configurades
+es pot fer amb la comanda:
+	$ ip a
+
+Si es vol aixer alguna en concret es pot fer amb:
+	# ifup <nom de la interficie>
+
+Inversament es pot desactivar amb:
+	# ifdown <nom de la interficie>
+
+Per a saber si aquesta està activa o no basta amb veure els paràmetres que té que
+normalment no disposa dels paràmetres que ofereix el DHCP.
+
+Es pot assegurar fent ping a la mateixa màquina amb aquesta interfície. Per exemple:
+	$ ping -I <nom interficie> 127.0.0.1
+
+Si la interfície no està activa, es queixarà amb un missatge de l'estil "La xarxa és
+inabastable" normalment en anglès.
+
+
+# REANOMENAMENT D'UNA INTERFÍCIE
+--------------------------------
+
+El sistema operatiu assigna un nom a cada interfície, antigament feia servir el nom
+d'ethX on X començava per la que zero, però aquest mètode era un problema perquè no
+hi havia una associació directa amb la targeta de xarxa física. Per aquest motiu es
+va començar a vincular el tipus de targeta amb la seva mac i així donar un nom únic.
+
+En aquest cas es diposa d'una interfície amb direcció mac 08:00:27:c0:3f:03 i amb nom
+enp0s3 del tipus ethernet (RJ45).
+
+És un nom dificil de recordar, per això, és útil poder assignar un nom propi.
+
+Per poder saber els paràmetres, mac i nom d'interfície es fa amb la comanda:
+	$ ip addr show
+
+Un cop recollides les dades, s'ha d'afegir un nou fitxer de configuracions persistents
+en /etc/udev/rules.d/ anomenat 70-persistent-net.rules on afegirem una regla com aquesta:
+
+	# interface with MAC address "08:00:27:c0:3f:03" will be assigned "itiel0"
+	SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", ATTR{address}=="08:00:27:c0:3f:03", ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="enp0s3", NAME="itiel0"
+
+Es important indicar en la directiva KERNEL el nom amb que es reconeix i en NAME amb
+el nom que vol veure a partir d'ara així com de quina interfície es tracta, per això,
+s'indica la mac en ATTR{address}. La resta de paràmetres són per a configurar més d'una
+en el cas de ATTR{dev_id} i el tipus, ethernet o wifi.
+
+Per acabar de configurar-la amb el nou nom s'ha d'aclarir en el fitxer de les
+interficies amb quien nom es veurà a partir d'ara per a què la pugui activar
+de forma automàtica i es puguin relacionar els paràmetres a l'interfície:
+
+Abans de modificar res:
+
+	# The primary network interface
+	auto enp0s3
+	allow-hotplug enp0s3
+	iface enp0s3 inet dhcp
+
+Després de reanomenar l'interfície:
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet dhcp
+
+
+# CONFIGURACIÓ DE LES INTERFÍCIES
+---------------------------------
+
+La configuració manual es fa sobre el fitxer /etc/network/interfaces on es poden
+assignar interfícies automàtiques, és a dir, que demanin els paràmetres de xarxa
+a un servidor DHCP o de manera estàtica on l'administrador introdueix cada un
+amb els valors que vol.
+
+Exemple configuració dinàmica:
+
+	# This file describes the network interfaces available on your system
+	# and how to activate them. For more information, see interfaces(5).
+
+	source /etc/network/interfaces.d/*
+
+	# The loopback network interface
+	auto lo
+	iface lo inet loopback
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet dhcp
+
+Exemple configuració estàtica:
+
+	# This file describes the network interfaces available on your system
+	# and how to activate them. For more information, see interfaces(5).
+
+	source /etc/network/interfaces.d/*
+
+	# The loopback network interface
+	auto lo
+	iface lo inet loopback
+
+	# The primary network interface
+	auto itiel0
+	allow-hotplug itiel0
+	iface itiel0 inet static
+			address 192.168.1.50
+			netmask 255.255.255.0
+			network 192.168.1.0
+			gateway 192.168.1.1
+			dns-nameservers 8.8.8.8
+
+Per poder re-negociar una nova direcció ip i els nous paràmetres es fa
+amb la comanda:
+	# dhclient -v -r <nom interfície>
+
+D'altra banda es pot configurar una interfície en viu, pot estar activa o desactivada
+i se li pot assignar els paràmetres necessaris amb la comanda:
+	# ip link set dev <interface> <parametre> <valor>
+
+També:
+	# ip addr add <ip dir with cidr> dev <interface>
+
+Exemple:
+
+	# ip link set dev itiel0 name eth0
+	# ip link set dev itiel0 address 00:80:c8:f8:be:ef
+	# ip link set dev itiel0 alias itiel_fisica
+	# ip addr add 192.168.1.20/24 dev itiel0
+	
+	
+Per acabar la configuració de l'interfície, és molt important saber si aquesta està bé,
+ja que es podría deixar sense comunicació a la màquina que s'està fent canvis.
+
+Amb la mateixa eina que s'activen les interfícies, amb uns paràmetres es pot veure
+si tot està correcte:
+
+	# sudo ifup --no-act <nom interfície>
+
+Per exemple, en cas d'estar tot correcte es veuría una sortida semblant a aquesta:
+	
+	$ sudo ifup --no-act eth0
+	ifup: interface eth0 already configured
+
+I en el cas advers:
+
+	$ sudo ifup --no-act eth0
+	/etc/network/interfaces:11: unknown method
+	ifup: couldn't read interfaces file "/etc/network/interfaces"
+
+
+# CONÈIXER IP EXTERNA
+---------------------
+
+Existeixen diverses formes, com per exemple les que s'esmentaran a continuació:
+	
+	1. Fer un ping a una ip externa, p.ex. a google.
+	2. Descarregar el recurs d'una pàgina web on indica l'ip pública del client mitjançant
+	   un llenguatge de programació web. P.ex. PHP.
+	3. Fent consultes DNS.
+
+Per poder conèixer l'ip externa per a cada interfície s'ha de canviar la ruta
+per defecte que té sortida a internet.
+
+Mostrar rutes:
+
+	$ ip route list
+
+Esborra ruta per defecte:
+
+	# ip route del default
+
+Ruta que farà servir:
+
+	# ip route add default via <gateway> dev <interface>
+
+Exemple:
+
+	# ip route add default via 192.168.1.1 dev eth1
+
+Per forçar a que depenent de la xarxa tingui una sortida o una d'altre:
+	
+	# ip route add <network> via <gateway> dev <interface>
+
+Exemple:
+
+	# ip route add 192.168.10.0/24 via 192.168.1.1 dev eth0
+
+A partir d'aquest moment les peticions a qualsevol ruta aniran per la eth1 excepte les
+que van cap a la xarxa 192.168.10.0 que aniran per la interfície eth0
+
+
+# RESOLUCIÓ DE NOMS
+-------------------
+
+Existeixen dues formes principalment de configurar i reconèixer hosts i xarxes. La primera
+forma es configurar-ho de manera local on es pot indicar donat un host un dns i un àlies
+en el fitxer /etc/hosts de manera que la primera columna representa l'ip de la màquina,
+la segona el dns i l'última s'especifica un àlies.
+
+Exemple:
+	
+	root@seax:~# cat /etc/hosts
+	127.0.0.1	localhost
+	127.0.1.1	seax.epsevg.upc.edu	seax
+
+Per un altra banda, del mateix mode, es troba el fitxer /etc/networks on es poden assignar
+les diferents xarxes que es coneixen. Les interfícies de la pròpia màquina que no tinguin
+especificat un nom per a la seva xarxa s'entén com que és la per defecte (0.0.0.0).
+
+Exemple:
+
+	root@seax:~# cat /etc/networks
+	default		0.0.0.0
+	loopback	127.0.0.0
+
+D'altra banda, es pot demanar al/s servidor/s DNS que ofereix el DHCP o bé, va ser configurat de
+manera estàtica per l'administrador de la xarxa, i que donada una ip, es pot saber quin nom té 
+l'equip i la xarxa si es que en tenen de configurats.
+
+Per exemple, en aquest cas nomès es mostra el registre PTR:
+
+	En el primer exemple es mostrarà el nom de la xarxa:
+
+	root@seax:~# dig @10.0.5.3 -x 147.83.201.96 +short
+	clients-xsf-96.upc.es.
+	root@seax:~#
+
+	En aquest cas es mostra el nom d'un equip:
+	
+	root@seax:~# dig @10.0.5.3 -x 147.83.45.72 +short
+	bibvg-portatil02.upc.es.
+	root@seax:~#
+
+	Pregunta quin nom té la següent xarxa:
+
+	root@seax:~# dig @10.0.5.3 -x 127.0.0.0 +short
+	localhost.
+	root@seax:~#
+
+
+# PROGRAMAR UN SHELL SCRIPT
+---------------------------
+
+Amb qualsevol editor de textos es pot programar un script shell, s'ha d'indicar quin tipus
+d'interpret ho executarà i respectar la sintaxis que cascacún d'aquests els hi conformen les 
+instruccions per poder realitzar un algoritme.
+
+És molt important procurar no cometre errors amb fitxers crítics del sistema, és convenient
+fer un backup. Si el fitxer és d'internet, és a dir, d'una font no confiable, s'hauría de
+procurar d'interpretar què és el que fa l'script i a quin nivell de sistema està fent
+consultes i modificacions.
+
+Per poder executar correctament l'script, és molt apropiat tenir els paquets amb les versions
+en que es va realitzar aquest per evitar problemes amb incompatibilitats. Si n'és
+l'administrador, creador del shell script, de tant en tant s'hauría de provar amb els paquets
+actualitzats.

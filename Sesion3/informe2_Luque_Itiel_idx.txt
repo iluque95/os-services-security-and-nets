@@ -1,0 +1,1843 @@
+Pràctica 3 - Sessió 2 - Crear un raid/cluster de discs en xarxa. (Luque Díaz Itiel)
+
+
+# INDEX
+-------
+
+(*) PROGRAMARI NECESSARI.............................20
+(*) FITXER RELACIONATS...............................29
+(*) DESCRIPCIÓ.......................................42
+(*) CREACIÓ D'UN RAID AMB MDADM......................50
+(*) ADMINISTRACIÓ D'UN RAID AMB MDADM...............953
+(*) CREACIÓ D'UN RAID Z AMB ZFS....................1048
+(*) RECUPERACIÓ RAIDZ..............................1153
+(*) CREACIÓ DE CLUSTER DE DISCOS AMB DRBD..........1333
+(*) RECUPERACIÓ CLUSTER DE DISCOS..................1542
+(*) COMPARTICIÓ RAID SMB...........................1731
+(*) SEGURETAT......................................1819
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* mdadm (apt-get install mdadm)
+* zfs (apt-get install zfs-dkms)
+* drbd (apt-get install drbd8-utils)
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/ssh/sshd_config				-->	Configuració general del servidor ssh i del servidor sftp.
+* /etc/fstab						--> Punts de muntatge automàtics.
+* /etc/samba/smb.conf				--> Configuració general de samba.
+* /etc/mdadm/mdadm.conf				-->	Declaració dels raids.
+* /etc/modules						-->	Mòduls que carrega el kernel al arrencar la màquina.
+* /etc/zfs/zed.d/zed.rc				--> Configuracions generals de zfs.
+* /etc/drbd.d/global_common.conf	--> Configuració global de drbd.
+* /etc/drbd.conf					--> Fitxers a carregar.
+
+
+# DESCRIPCIÓ
+------------
+
+Sovint hi ha un gran flux de dades que s'emmagatzemen en el servidor nas, però, què passa si aquestes dades s'estan desant en un mateix disc? Pitjor encara,
+que passa si aquest disc mor? Es interessant poder aprofitar la capacitat de tenir més discos i tractar-los com si d'un només es tractés. Això s'anomena RAID, i,
+es pot mantindre un compromís entre guanyar més capacitat i velocitat o redundància de dades on s'hauría de sacrificar aquests dos beneficis.
+ 
+
+# CREACIÓ D'UN RAID AMB MDADM
+-----------------------------
+
+Primer s'ha de crear l'array de discos (Multi Disk) amb la comanda:
+
+	root@esclavo:~# mknod /dev/md0 b 9 0
+	root@esclavo:~#
+
+	- Paràmetre b: Crea un block buffered junt als valors "majors" i "minors".
+
+	NOTA: El valor 9 és el màxim dels menors. El valor minor s'incrementa al mateix temps que número de "md". Ex: $ mknod /Dev/md1 b 9 1
+
+Previament a fer l'array de discos (raid) és necessari particionar els discos. En aquest cas, s'ha creat una partició ocupant el màxim del
+disc. Seguidament s'ha donat format en ext4.
+
+Per fer un raid 0 on suma les capacitats dels dos discos assignats i per tant guanya en velocitat:
+
+	root@esclavo:~# mdadm --create /dev/md0 --level=raid0 --raid-devices=2 /dev/sdb1 /dev/sdc1
+	mdadm: Defaulting to version 1.2 metadata
+	mdadm: array /dev/md0 started.
+	root@esclavo:~#
+
+
+Comprovació de l'stat del multi-disk (raid) en el sistema operatiu:
+
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [linear] [multipath] [raid0] [raid1] [raid6] [raid5] [raid4] [raid10] 
+	md0 : active raid0 sdc1[1] sdb1[0]
+		  200704 blocks super 1.2 512k chunks
+		  
+	unused devices: <none>
+	root@esclavo:~#
+
+Ara queja donar-li un sistema de fitxer, per això cal formatejar:
+
+	root@esclavo:~# mkfs.ext4 /dev/md0
+	mke2fs 1.43.4 (31-Jan-2017)
+	S'està creant un sistema de fitxers amb 200704 1k blocs i 50200 nodes-i
+	UUID del sistema de fitxers=8af60877-4911-4915-a669-b632eaab3f89
+	Còpies de seguretat del superbloc desades en els blocs: 
+		8193, 24577, 40961, 57345, 73729
+
+	S'assignen les taules de grup: fet                            
+	Escriptura de les taules de nodes-i:fet                            
+	Creació del registre de transaccions (4096 blocs): fet
+	Escriptura de la informació dels superblocs i de comptabilitat del sistema de fitxers:fet  
+
+	root@esclavo:~#
+
+Per a què s'automunti al encendre la màquina és necessari indicar-ho en el /etc/fstab:
+
+	root@esclavo:~# tail -n1 /etc/fstab 
+	/dev/md0	/raid		ext4	defaults,user	10	2
+
+Comprovació del muntatge:
+
+	root@esclavo:~# mount /dev/md0 
+	mount: /dev/md0 is already mounted or /raid busy
+		   /dev/md0 is already mounted on /raid
+	root@esclavo:~# df -h | grep md0
+	/dev/md0        186M  1,6M   171M   1% /raid
+	root@esclavo:~#
+
+	NOTA: Es pot observar com s'han sumat les capacitats d'ambdós discos.
+
+Es pot saber de forma detallada l'estat actual del raid, com saber els dispositius associats i la quantitat d'aquests, el nivell de raid, l'UUID, etc...
+
+	root@esclavo:~# mdadm --query /dev/md0
+	/dev/md0: 196.00MiB raid0 2 devices, 0 spares. Use mdadm --detail for more detail.
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --detail /dev/md0
+	/dev/md0:
+		    Version : 1.2
+	  Creation Time : Thu May  9 11:49:34 2019
+		 Raid Level : raid0
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	   Raid Devices : 2
+	  Total Devices : 2
+		Persistence : Superblock is persistent
+
+		Update Time : Thu May  9 11:49:34 2019
+		      State : clean 
+	 Active Devices : 2
+	Working Devices : 2
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : aee2c135:ccb842e3:9af4e737:3a8cac0a
+		     Events : 0
+
+		Number   Major   Minor   RaidDevice State
+		   0       8       17        0      active sync   /dev/sdb1
+		   1       8       33        1      active sync   /dev/sdc1
+	root@esclavo:~#
+
+IMPORTANT: Hi ha un bug amb el nom del multi-disk, al reinicialitzar canvia de /dev/md0 a /dev/md127 i de vegades a l'inversa. Per solucionar-ho i curar-se'n en salut,
+aprofitarem l'UUID en el /etc/fstab que de segur mai fallarà:
+
+	root@esclavo:~# blkid | grep md127
+	/dev/md127: UUID="8af60877-4911-4915-a669-b632eaab3f89" TYPE="ext4"
+	root@esclavo:~#
+
+	root@esclavo:~# tail -n1 /etc/fstab 
+	UUID=8af60877-4911-4915-a669-b632eaab3f89	/raid		ext4	defaults,user	10	2
+	root@esclavo:~#
+
+Creació d'un raid 1 després d'esborrar el raid0:
+
+	root@esclavo:~# mdadm --create /dev/md0 --level=raid1 --raid-devices=2 /dev/sdb1 /dev/sdc1
+	mdadm: Defaulting to version 1.2 metadata
+	mdadm: array /dev/md0 started.
+	root@esclavo:~#
+
+Formateig del raid en extensió 4:
+
+	root@esclavo:~# mkfs.ext4 /dev/md0
+	mke2fs 1.43.4 (31-Jan-2017)
+	S'està creant un sistema de fitxers amb 200704 1k blocs i 50200 nodes-i
+	UUID del sistema de fitxers=3c13e52f-bc14-4734-9d5f-60597d0cae39
+	Còpies de seguretat del superbloc desades en els blocs: 
+		8193, 24577, 40961, 57345, 73729
+
+	S'assignen les taules de grup: fet                            
+	Escriptura de les taules de nodes-i:fet                            
+	Creació del registre de transaccions (4096 blocs): fet
+	Escriptura de la informació dels superblocs i de comptabilitat del sistema de fitxers:fet  
+
+	root@esclavo:~#
+
+S'ha d'actualitzar l'fstab per a quan es reinicialitzi l'equip continui muntant correctament el raid:
+
+	root@esclavo:~# blkid /dev/md127
+	/dev/md127: UUID="b8a7f0e1-c533-4dfa-bfc4-174c9930109f" TYPE="ext4"
+	root@esclavo:~#
+
+	root@esclavo:~# tail -n1 /etc/fstab 
+	UUID=b8a7f0e1-c533-4dfa-bfc4-174c9930109f	/raid		ext4	defaults,user	10	2
+	root@esclavo:~#
+
+Comprovació del raid 1:
+
+	root@esclavo:~# df -h | grep /dev/md127
+	/dev/md127       92M  1,6M    84M   2% /raid
+	root@esclavo:~#
+	
+	NOTA: L'espai és l'ho que ocupa un disc per separat, aquest raid és el "mirall".
+
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5] [raid4] [raid10] 
+	md127 : active raid1 sdb1[0] sdc1[1]
+		  101248 blocks super 1.2 [2/2] [UU]
+		  
+	unused devices: <none>
+	root@esclavo:~#
+
+Simulació de fallada en un dels discos de l'array:
+
+	root@esclavo:~# mdadm --fail /dev/md127 /dev/sdb1
+	mdadm: set /dev/sdb1 faulty in /dev/md127
+	root@esclavo:~# 
+
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5] [raid4] [raid10] 
+	md127 : active raid1 sdb1[0](F) sdc1[1]
+		  101248 blocks super 1.2 [2/1] [_U]
+		  
+	unused devices: <none>
+	root@esclavo:~# 
+
+Eliminació del disc amb fallades:
+
+	root@esclavo:/raid# mdadm --fail /dev/md127 /dev/sdb1
+	mdadm: set /dev/sdb1 faulty in /dev/md127
+	root@esclavo:/raid#
+
+	root@esclavo:/raid# mdadm --manage /dev/md127 --remove /dev/sdb1
+	mdadm: hot removed /dev/sdb1 from /dev/md127
+	root@esclavo:/raid#
+
+S'ha afegit un nou disc a l'array que aquest automàticament comença la sincronització per a recuperar les dades:
+
+	root@esclavo:/raid# mdadm /dev/md127 --manage --add /dev/sde1
+	mdadm: added /dev/sde1
+	root@esclavo:/raid#
+
+En la comprovació de l'estat del multi-disk es pot veure com està funcionant correctament:
+
+	root@esclavo:/raid# cat /proc/mdstat 
+	Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5] [raid4] [raid10] 
+	md127 : active raid1 sde1[2] sdc1[1]
+		  101248 blocks super 1.2 [2/2] [UU]
+		  
+	unused devices: <none>
+	root@esclavo:/raid#
+
+	NOTA: S'hauría de veure l'estat de recuperació, però, donat la velocitat del SSD en l'escenari, no permet visualitzar-ho.
+
+Creació d'un raid 5 amb un mínim de tres discos, dos de dades i un de paritat:
+
+	root@esclavo:~# mdadm --create /dev/md0 --level=raid5 --raid-devices=3 /dev/sdb1 /dev/sdc1 /dev/sdd1
+	mdadm: Defaulting to version 1.2 metadata
+	mdadm: array /dev/md0 started.
+	root@esclavo:~#
+
+Formateig del raid en extensió 4:
+
+	root@esclavo:~# mkfs.ext4 /dev/md0
+	mke2fs 1.43.4 (31-Jan-2017)
+	S'està creant un sistema de fitxers amb 200704 1k blocs i 50200 nodes-i
+	UUID del sistema de fitxers=3c13e52f-bc14-4734-9d5f-60597d0cae39
+	Còpies de seguretat del superbloc desades en els blocs: 
+		8193, 24577, 40961, 57345, 73729
+
+	S'assignen les taules de grup: fet                            
+	Escriptura de les taules de nodes-i:fet                            
+	Creació del registre de transaccions (4096 blocs): fet
+	Escriptura de la informació dels superblocs i de comptabilitat del sistema de fitxers:fet  
+
+	root@esclavo:~#
+
+Comprovació de l'estat del raid5 per assegurar-se'n de que estan tots els discos i figura com a tal:
+
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [raid1] [linear] [multipath] [raid0] [raid6] [raid5] [raid4] [raid10] 
+	md0 : active raid5 sdd1[3] sdc1[1] sdb1[0]
+		  200704 blocks super 1.2 level 5, 512k chunk, algorithm 2 [3/3] [UUU]
+		  
+	unused devices: <none>
+	root@esclavo:~#
+
+Actualizació del fstab per el nou raid:
+
+	root@esclavo:~# blkid | grep md0
+	/dev/md0: UUID="3c13e52f-bc14-4734-9d5f-60597d0cae39" TYPE="ext4"
+	root@esclavo:~#
+
+	root@esclavo:~# tail -n1 /etc/fstab 
+	UUID=3c13e52f-bc14-4734-9d5f-60597d0cae39	/raid		ext4	defaults,user	10	2
+	root@esclavo:~#
+
+Després de reiniciatlizar la màquina i d'automuntar-se el raid, s'ha comprovat que ho estigui realment:
+
+	root@esclavo:~# df -h  | grep raid
+	/dev/md127      186M  1,6M   171M   1% /raid
+	root@esclavo:~#
+
+Comprovació del raid després d'omplir-lo de dades perquè a continuació es procedirà a marcar un disc com a fallit i canviar-lo per un de nou:
+
+	root@esclavo:/raid# mdadm --detail /dev/md127
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 12:38:08 2019
+		 Raid Level : raid5
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 3
+	  Total Devices : 3
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 12:54:33 2019
+		      State : clean 
+	 Active Devices : 3
+	Working Devices : 3
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : 091db981:5f9a56d8:7879818c:2a581191
+		     Events : 42
+
+		Number   Major   Minor   RaidDevice State
+		   4       8       17        0      active sync   /dev/sdb1
+		   1       8       33        1      active sync   /dev/sdc1
+		   3       8       49        2      active sync   /dev/sdd1
+	root@esclavo:/raid#
+
+	NOTA: Es mostren tots el discos en estat actiu i sincronitzats. És bona senyal.
+
+Indicació d'un disc fallit al raid i eliminació d'aquest:
+
+	root@esclavo:/raid# mdadm --fail /dev/md127 /dev/sdb1
+	mdadm: set /dev/sdb1 faulty in /dev/md127
+	root@esclavo:/raid# 
+
+	root@esclavo:/raid# mdadm --remove /dev/md127 /dev/sdb1
+	mdadm: hot removed /dev/sdb1 from /dev/md127
+	root@esclavo:/raid#
+
+	root@esclavo:/raid# mdadm --detail /dev/md127
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 12:38:08 2019
+		 Raid Level : raid5
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 3
+	  Total Devices : 2
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 12:57:27 2019
+		      State : clean, degraded 
+	 Active Devices : 2
+	Working Devices : 2
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : 091db981:5f9a56d8:7879818c:2a581191
+		     Events : 45
+
+		Number   Major   Minor   RaidDevice State
+		   -       0        0        0      removed
+		   1       8       33        1      active sync   /dev/sdc1
+		   3       8       49        2      active sync   /dev/sdd1
+	root@esclavo:/raid#
+
+	NOTA: Indica que un dels discos ha estat eliminat de l'array.
+
+Substitució del disc "espatllat" i comprovació de la resincronització:
+
+	root@esclavo:/raid# mdadm --add /dev/md127 /dev/sde1
+	mdadm: added /dev/sde1
+	root@esclavo:/raid#
+
+	root@esclavo:/raid# mdadm --detail /dev/md127
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 12:38:08 2019
+		 Raid Level : raid5
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 3
+	  Total Devices : 3
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 12:59:02 2019
+		      State : clean 
+	 Active Devices : 3
+	Working Devices : 3
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : 091db981:5f9a56d8:7879818c:2a581191
+		     Events : 64
+
+		Number   Major   Minor   RaidDevice State
+		   4       8       65        0      active sync   /dev/sde1
+		   1       8       33        1      active sync   /dev/sdc1
+		   3       8       49        2      active sync   /dev/sdd1
+	root@esclavo:/raid#
+
+	NOTA: Un altre cop més degut a la alta velocitat del SSD ha resincronitzat el raid molt ràpid.
+
+S'han eliminat dos dels tres discos del raid 5 i aquest a mort. Cal reformar de nou el raid:
+
+	root@esclavo:~# mdadm --stop /dev/md0
+	mdadm: stopped /dev/md0
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --assemble /dev/sde1 /dev/sdd1
+	mdadm: device /dev/sde1 exists but is not an md array.
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --misc --detail /dev/md0 
+	/dev/md0:
+		    Version : 1.2
+		 Raid Level : raid0
+	  Total Devices : 3
+		Persistence : Superblock is persistent
+
+		      State : inactive
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : 091db981:5f9a56d8:7879818c:2a581191
+		     Events : 64
+
+		Number   Major   Minor   RaidDevice
+
+		   -       8       65        -        /dev/sde1
+		   -       8       49        -        /dev/sdd1
+		   -       8       33        -        /dev/sdc1
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm -R /dev/md0
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [linear] [multipath] [raid0] [raid1] [raid6] [raid5] [raid4] [raid10] 
+	md0 : inactive sdd1[3]
+		  100352 blocks super 1.2
+		   
+	unused devices: <none>
+	root@esclavo:~# mdadm --misc --detail /dev/md0 
+	/dev/md0:
+		    Version : 1.2
+	  Creation Time : Sun May 12 12:38:08 2019
+		 Raid Level : raid5
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 3
+	  Total Devices : 1
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 13:03:31 2019
+		      State : active, FAILED, Not Started 
+	 Active Devices : 1
+	Working Devices : 1
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : 091db981:5f9a56d8:7879818c:2a581191
+		     Events : 74
+
+		Number   Major   Minor   RaidDevice State
+		   -       0        0        0      removed
+		   -       0        0        1      removed
+		   3       8       49        2      active sync   /dev/sdd1
+	root@esclavo:~#
+
+Per poder refer l'array es important aturar-lo primer, després és necessari forçar el ensamblatge:
+
+	root@esclavo:~# mdadm --stop /dev/md127 
+	mdadm: stopped /dev/md127
+	root@esclavo:~# 
+
+	root@esclavo:~# mdadm --assemble /dev/md127 /dev/sdd1 /dev/sdc1 /dev/sde1 --force
+	mdadm: forcing event count in /dev/sdc1(1) from 66 upto 74
+	mdadm: /dev/md127 has been started with 2 drives (out of 3).
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 12:38:08 2019
+		 Raid Level : raid5
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 3
+	  Total Devices : 2
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 13:42:46 2019
+		      State : clean, degraded 
+	 Active Devices : 2
+	Working Devices : 2
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : 091db981:5f9a56d8:7879818c:2a581191
+		     Events : 76
+
+		Number   Major   Minor   RaidDevice State
+		   -       0        0        0      removed
+		   1       8       33        1      active sync   /dev/sdc1
+		   3       8       49        2      active sync   /dev/sdd1
+	root@esclavo:~#
+
+	NOTA: Està net, pero amb una degradació que ha estat arrosegada del trencament d'aquest.
+
+S'ha d'incloure el disc que no ha pogut ser afegit amb la comanda:
+	
+	root@esclavo:~# mdadm --add /dev/md127 /dev/sde1
+	mdadm: added /dev/sde1
+	root@esclavo:~#
+
+Comprovació del raid després de forçar una recuperació:
+
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [linear] [multipath] [raid0] [raid1] [raid6] [raid5] [raid4] [raid10] 
+	md127 : active raid5 sde1[4] sdc1[1] sdd1[3]
+		  200704 blocks super 1.2 level 5, 512k chunk, algorithm 2 [3/3] [UUU]
+		  
+	unused devices: <none>
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 12:38:08 2019
+		 Raid Level : raid5
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 3
+	  Total Devices : 3
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 13:43:12 2019
+		      State : clean 
+	 Active Devices : 3
+	Working Devices : 3
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : 091db981:5f9a56d8:7879818c:2a581191
+		     Events : 95
+
+		Number   Major   Minor   RaidDevice State
+		   4       8       65        0      active sync   /dev/sde1
+		   1       8       33        1      active sync   /dev/sdc1
+		   3       8       49        2      active sync   /dev/sdd1
+	root@esclavo:~#
+
+Creació d'un raid6, en aquest cas són necessaris com a mínim quatre discos, dos de dades i dos de paritat:
+
+	root@esclavo:~# mdadm --create /dev/md0 --level=raid6 --raid-devices=4 /dev/sdb1 /dev/sdc1 /dev/sdd1 /dev/sde1
+	mdadm: /dev/sdb1 appears to be part of a raid array:
+		   level=raid5 devices=3 ctime=Sun May 12 12:38:08 2019
+	Continue creating array? 
+	Continue creating array? (y/n) y
+	mdadm: Defaulting to version 1.2 metadata
+	mdadm: array /dev/md0 started.
+	root@esclavo:~#
+
+	root@esclavo:~# mkfs.ext4 /dev/md0
+	mke2fs 1.43.4 (31-Jan-2017)
+	S'està creant un sistema de fitxers amb 200704 1k blocs i 50200 nodes-i
+	UUID del sistema de fitxers=c328492b-7b73-479f-a4ae-03e6a89a4c46
+	Còpies de seguretat del superbloc desades en els blocs: 
+		8193, 24577, 40961, 57345, 73729
+
+	S'assignen les taules de grup: fet                            
+	Escriptura de les taules de nodes-i:fet                            
+	Creació del registre de transaccions (4096 blocs): fet
+	Escriptura de la informació dels superblocs i de comptabilitat del sistema de fitxers:fet  
+
+	root@esclavo:~#
+
+	root@esclavo:~# blkid | grep md0
+	/dev/md0: UUID="c328492b-7b73-479f-a4ae-03e6a89a4c46" TYPE="ext4"
+	root@esclavo:~#
+
+	root@esclavo:~# tail -n1 /etc/fstab 
+	UUID=c328492b-7b73-479f-a4ae-03e6a89a4c46	/raid		ext4	defaults,user	10	2
+	root@esclavo:~#
+
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [linear] [multipath] [raid0] [raid1] [raid6] [raid5] [raid4] [raid10] 
+	md0 : active raid6 sde1[3] sdd1[2] sdc1[1] sdb1[0]
+		  200704 blocks super 1.2 level 6, 512k chunk, algorithm 2 [4/4] [UUUU]
+		  
+	unused devices: <none>
+	root@esclavo:~#
+
+Després de reinicialitzar la màquina i d'automuntar-se el raid, es comprovarà que aquest estigui muntat correctament:
+
+	root@esclavo:~# df -h | grep /raid
+	/dev/md127      186M  1,6M   171M   1% /raid
+	root@esclavo:~#
+
+Preparació de la carpeta compartida de samba per a poder omplir el raid:
+
+	root@esclavo:~# cd /raid/
+	root@esclavo:~#
+
+	root@esclavo:/raid# mkdir shared
+	root@esclavo:/raid#
+
+	root@esclavo:/raid# chown sadmin:sambashare shared/
+	root@esclavo:/raid#
+
+	root@esclavo:/raid# chmod 2770 shared/
+	root@esclavo:/raid#
+
+Demostració com el raid està omplert:
+
+	root@esclavo:/raid/shared# ls -l
+	total 174664
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (10.ª copia).zip
+	-rwxrw-r-- 1 itielsmb sambashare 11812864 mai 12 13:59 Captures_Wireshark (11.ª copia).zip
+	-rwxrw-r-- 1 itielsmb sambashare  5865472 mai 12 13:59 Captures_Wireshark (12.ª copia).zip
+	-rwxrw-r-- 1 itielsmb sambashare  1284160 mai 12 13:59 Captures_Wireshark (13.ª copia).zip
+	-rwxrw-r-- 1 itielsmb sambashare        0 mai 12 13:59 Captures_Wireshark (14.ª copia).zip
+	-rwxrw-r-- 1 itielsmb sambashare        0 mai 12 13:59 Captures_Wireshark (15.ª copia).zip
+	-rwxrw-r-- 1 itielsmb sambashare        0 mai 12 13:59 Captures_Wireshark (16.ª copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (3.ª copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (4.ª copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (5.ª copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (6.ª copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (7.ª copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (8.ª copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (9.ª copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark (otra copia).zip
+	-rw-rw-r-- 1 itielsmb sambashare 14535364 mar  1 19:35 Captures_Wireshark.zip
+	root@esclavo:/raid/shared#
+
+	root@esclavo:/raid/shared# df -h | grep raid
+	/dev/md127      186M  173M      0 100% /raid
+	root@esclavo:/raid/shared#
+
+	NOTA: Totes les proves en l'escenari s'han fet del mateix mode, per no repetir s'explica només un cop, perquè són iguals.
+
+Comprovació de l'estat del raid 6:
+
+	root@esclavo:/raid/shared# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 13:52:45 2019
+		 Raid Level : raid6
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 4
+	  Total Devices : 4
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 14:00:46 2019
+		      State : clean 
+	 Active Devices : 4
+	Working Devices : 4
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : a979bb3d:9ca42b5d:0ddaf140:5fc0a95c
+		     Events : 19
+
+		Number   Major   Minor   RaidDevice State
+		   0       8       17        0      active sync   /dev/sdb1
+		   1       8       33        1      active sync   /dev/sdc1
+		   2       8       49        2      active sync   /dev/sdd1
+		   3       8       65        3      active sync   /dev/sde1
+	root@esclavo:/raid/shared# 
+
+Testeig del raid, marcament d'un raid com a fallit:
+
+	root@esclavo:~# mdadm --fail /dev/md127 /dev/sdd1 
+	mdadm: set /dev/sdd1 faulty in /dev/md127
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 13:52:45 2019
+		 Raid Level : raid6
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 4
+	  Total Devices : 4
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 14:05:37 2019
+		      State : clean, degraded 
+	 Active Devices : 3
+	Working Devices : 3
+	 Failed Devices : 1
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : a979bb3d:9ca42b5d:0ddaf140:5fc0a95c
+		     Events : 25
+
+		Number   Major   Minor   RaidDevice State
+		   0       8       17        0      active sync   /dev/sdb1
+		   1       8       33        1      active sync   /dev/sdc1
+		   -       0        0        2      removed
+		   3       8       65        3      active sync   /dev/sde1
+
+		   2       8       49        -      faulty   /dev/sdd1
+	root@esclavo:~#
+
+Es torna a marcar un altre com a mort i es treuen de l'array:
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 13:52:45 2019
+		 Raid Level : raid6
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 4
+	  Total Devices : 4
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 14:05:37 2019
+		      State : clean, degraded 
+	 Active Devices : 3
+	Working Devices : 3
+	 Failed Devices : 1
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : a979bb3d:9ca42b5d:0ddaf140:5fc0a95c
+		     Events : 25
+
+		Number   Major   Minor   RaidDevice State
+		   0       8       17        0      active sync   /dev/sdb1
+		   1       8       33        1      active sync   /dev/sdc1
+		   -       0        0        2      removed
+		   3       8       65        3      active sync   /dev/sde1
+
+		   2       8       49        -      faulty   /dev/sdd1
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 13:52:45 2019
+		 Raid Level : raid6
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 4
+	  Total Devices : 4
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 14:08:55 2019
+		      State : clean, degraded 
+	 Active Devices : 2
+	Working Devices : 2
+	 Failed Devices : 2
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : a979bb3d:9ca42b5d:0ddaf140:5fc0a95c
+		     Events : 27
+
+		Number   Major   Minor   RaidDevice State
+		   0       8       17        0      active sync   /dev/sdb1
+		   -       0        0        1      removed
+		   -       0        0        2      removed
+		   3       8       65        3      active sync   /dev/sde1
+
+		   1       8       33        -      faulty   /dev/sdc1
+		   2       8       49        -      faulty   /dev/sdd1
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --remove /dev/md127 /dev/sdc1 
+	mdadm: hot removed /dev/sdc1 from /dev/md127
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --remove /dev/md127 /dev/sdd1
+	mdadm: hot removed /dev/sdd1 from /dev/md127
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 13:52:45 2019
+		 Raid Level : raid6
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 4
+	  Total Devices : 2
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 14:10:38 2019
+		      State : clean, degraded 
+	 Active Devices : 2
+	Working Devices : 2
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : a979bb3d:9ca42b5d:0ddaf140:5fc0a95c
+		     Events : 29
+
+		Number   Major   Minor   RaidDevice State
+		   0       8       17        0      active sync   /dev/sdb1
+		   -       0        0        1      removed
+		   -       0        0        2      removed
+		   3       8       65        3      active sync   /dev/sde1
+	root@esclavo:~#
+
+S'afegirà un nou disc per tractar de recuperar el raid:
+
+	root@esclavo:~# mdadm --add /dev/md127 /dev/sdf1
+	mdadm: added /dev/sdf1
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 13:52:45 2019
+		 Raid Level : raid6
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 4
+	  Total Devices : 3
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 14:14:25 2019
+		      State : clean, degraded 
+	 Active Devices : 3
+	Working Devices : 3
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : a979bb3d:9ca42b5d:0ddaf140:5fc0a95c
+		     Events : 48
+
+		Number   Major   Minor   RaidDevice State
+		   0       8       17        0      active sync   /dev/sdb1
+		   4       8       81        1      active sync   /dev/sdf1
+		   -       0        0        2      removed
+		   3       8       65        3      active sync   /dev/sde1
+	root@esclavo:~#
+
+	NOTA: Funciona tot correctament.
+
+Es forçarà a que el raid mori matant 3 discos, d'aquesta forma quedarà inservible:
+
+	root@esclavo:~# mdadm --fail /dev/md127 /dev/sdf1
+	mdadm: set /dev/sdf1 faulty in /dev/md127
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --fail /dev/md127 /dev/sde1
+	mdadm: set /dev/sde1 faulty in /dev/md127
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --remove /dev/md127 /dev/sdf1
+	mdadm: hot removed /dev/sdf1 from /dev/md127
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --remove /dev/md127 /dev/sde1
+	mdadm: hot removed /dev/sde1 from /dev/md127
+	root@esclavo:~#
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+	  Creation Time : Sun May 12 13:52:45 2019
+		 Raid Level : raid6
+		 Array Size : 200704 (196.00 MiB 205.52 MB)
+	  Used Dev Size : 100352 (98.00 MiB 102.76 MB)
+	   Raid Devices : 4
+	  Total Devices : 1
+		Persistence : Superblock is persistent
+
+		Update Time : Sun May 12 14:18:01 2019
+		      State : clean, FAILED 
+	 Active Devices : 1
+	Working Devices : 1
+	 Failed Devices : 0
+	  Spare Devices : 0
+
+		     Layout : left-symmetric
+		 Chunk Size : 512K
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : a979bb3d:9ca42b5d:0ddaf140:5fc0a95c
+		     Events : 70
+
+		Number   Major   Minor   RaidDevice State
+		   0       8       17        0      active sync   /dev/sdb1
+		   -       0        0        1      removed
+		   -       0        0        2      removed
+		   -       0        0        3      removed
+	root@esclavo:~#
+
+	NOTA: En aquest punt, l'estat del raid és fallit. No pot recuperar-se.
+
+root@esclavo:~# mdadm --zero-superblock /dev/sde1
+root@esclavo:~# mdadm --zero-superblock /dev/sdf1
+root@esclavo:~# mdadm --zero-superblock /dev/sdc1
+root@esclavo:~#
+
+root@esclavo:~# mdadm --add /dev/md127 /dev/sde1
+mdadm: /dev/md127 has failed so using --add cannot work and might destroy
+mdadm: data on /dev/sde1.  You should stop the array and re-assemble it.
+root@esclavo:~#
+
+
+# ADMINISTRACIÓ D'UN RAID AMB MDADM
+-----------------------------------
+
+En el següent escenari, amb un raid 0 (suma de capacitats) s'ha tret un dels discos que el conforma i el sistema operatiu ha detecta que passa alguna cosa.
+El sistema operatiu ha entrat en mode manteniment i requereix l'usuari root.
+
+Amb la següent comanda, mostra quin és l'estat actual del raid:
+
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [linear] [multipath] [raid0] [raid1] [raid6] [raid5] [raid4] [raid10] 
+	md127 : inactive sdb1[1](S)
+		  100352 blocks super 1.2
+		   
+	unused devices: <none>
+	root@esclavo:~#
+
+	NOTA: Està indicant que el disc sbd1 no està actiu en el dispositiu multi-disk.
+
+Amb aquesta altra ens indica clarament que només hi ha un disc dels dos que hi hauría de tenir:
+
+	root@esclavo:~# mdadm --misc --detail /dev/md127 
+	/dev/md127:
+		    Version : 1.2
+		 Raid Level : raid0
+	  Total Devices : 1
+		Persistence : Superblock is persistent
+
+		      State : inactive
+
+		       Name : esclavo:0  (local to host esclavo)
+		       UUID : aee2c135:ccb842e3:9af4e737:3a8cac0a
+		     Events : 0
+
+		Number   Major   Minor   RaidDevice
+
+		   -       8       17        -        /dev/sdb1
+	root@esclavo:~#
+
+Per afegir un disc nou en comptes de l'anterior que "està espatllat", caldría incloure'l al raid:
+
+	root@esclavo:~# mdadm /dev/md127 --manage --add /dev/sdc1
+	mdadm: Cannot get array info for /dev/md127
+	root@esclavo:~#
+
+La comanda no pot trobar l'array perquè no està definit. Si forcem a reorganitzar l'array, retornarà aquest missatge:
+
+	root@esclavo:~# mdadm --assemble /dev/md127 
+	mdadm: /dev/md127 not identified in config file.
+	root@esclavo:~#
+
+S'ha de configurar previament en el fitxer /etc/mdadm/mdadm.conf
+
+	root@esclavo:~# mdadm --detail --scan > /etc/mdadm/mdadm.conf 
+	root@esclavo:~#
+
+	root@esclavo:~# tail -n1 /etc/mdadm/mdadm.conf 
+	ARRAY /dev/md/127 metadata=1.2 name=esclavo:0 UUID=aee2c135:ccb842e3:9af4e737:3a8cac0a
+	root@esclavo:~#
+
+Com es tracta del raid0 i aquest no té cap mena de redundància, no es possible tractar de recuperar/substituir el disc.
+Per aquest motiu, una opció és refer l'array amb un nou disc.
+
+Al tractar de crear-lo, el sistema detecta que ja existeix:
+
+	root@esclavo:~# mdadm --create --verbose --assume-clean --level=raid0 --raid-devices=2 /dev/md127 /dev/sdc1 /dev/sdd1
+	mdadm: chunk size defaults to 512K
+	mdadm: /dev/md127 is already in use.
+	root@esclavo:~#
+
+Es necessari treure l'array fent:
+
+	root@esclavo:~# mdadm --stop /dev/md127 
+	mdadm: stopped /dev/md127
+	root@esclavo:~#
+
+En aquest punt, ja es pot crear de nou l'array amb el disc que habia sobreviscut:
+
+	root@esclavo:~# mdadm --create --verbose --assume-clean --level=raid0 --raid-devices=2 /dev/md127 /dev/sdc1 /dev/sdd1
+	mdadm: chunk size defaults to 512K
+	mdadm: Defaulting to version 1.2 metadata
+	mdadm: array /dev/md127 started.
+	root@esclavo:~#
+
+	root@esclavo:~# cat /proc/mdstat 
+	Personalities : [linear] [multipath] [raid0] [raid1] [raid6] [raid5] [raid4] [raid10] 
+	md127 : active raid0 sdd1[1] sdc1[0]
+		  200704 blocks super 1.2 512k chunks
+		  
+	unused devices: <none>
+	root@esclavo:~#
+
+S'ha creat un nou array independent a l'anterior. L'anterior ha de ser esborrat perquè no es pot recuperar cap mena de dades
+ja que el 50% d'aquestes han desaparegut.
+
+
+# CREACIÓ D'UN RAID Z AMB ZFS
+-----------------------------
+
+Primerament s'ha d'instal·lar el paquet de zfs, que per fer-ho és necessari fer un seguit de passos previs.
+Per començar, fa falta afegir els headers del kernel de linux:
+
+	root@esclavo:~# apt-get install --yes dpkg-dev linux-headers-$(uname -r) linux-image-amd64
+	Leyendo lista de paquetes... Hecho
+	Creando árbol de dependencias       
+	Leyendo la información de estado... Hecho
+	dpkg-dev ya está en su versión más reciente (1.18.25).
+	linux-headers-4.9.0-9-amd64 ya está en su versión más reciente (4.9.168-1).
+	linux-image-amd64 ya está en su versión más reciente (4.9+80+deb9u7).
+	0 actualizados, 0 nuevos se instalarán, 0 para eliminar y 8 no actualizados.
+	root@esclavo:~#
+
+	NOTA: Ja s'han instal·lat previament, aquesta captura és representativa.
+
+
+Seguidament s'ha de modificar els sources list i afegir les fonts privades:
+
+	root@esclavo:~# cat /etc/apt/sources.list
+	# 
+
+	# deb cdrom:[Debian GNU/Linux 9.6.0 _Stretch_ - Official amd64 NETINST 20181110-11:34]/ stretch main
+
+	#deb cdrom:[Debian GNU/Linux 9.6.0 _Stretch_ - Official amd64 NETINST 20181110-11:34]/ stretch main
+
+	deb http://ftp.es.debian.org/debian/ stretch main contrib non-free
+	deb-src http://ftp.es.debian.org/debian/ stretch main
+
+	deb http://security.debian.org/debian-security stretch/updates main
+	deb-src http://security.debian.org/debian-security stretch/updates main
+
+	# stretch-updates, previously known as 'volatile'
+	deb http://ftp.es.debian.org/debian/ stretch-updates main contrib non-free
+	deb-src http://ftp.es.debian.org/debian/ stretch-updates main
+	root@esclavo:~#
+
+En aquest punt ja es pot instal·lar el paquet:
+
+	root@esclavo:~# apt-get install zfs-dkms
+	Leyendo lista de paquetes... Hecho
+	Creando árbol de dependencias       
+	Leyendo la información de estado... Hecho
+	zfs-dkms ya está en su versión más reciente (0.6.5.9-5).
+	0 actualizados, 0 nuevos se instalarán, 0 para eliminar y 8 no actualizados.
+	root@esclavo:~#
+
+	NOTA: Ja s'havia instal·lat abans de fer la prova.
+
+Per a que funcioni el mòdul cal carregar-lo i indicar que s'autocarregui al engegar la màquina:
+
+	root@esclavo:~# modprobe zfs
+	root@esclavo:~#
+
+	root@esclavo:~# echo "zfs" >> /etc/modules
+	root@esclavo:~#
+
+	root@esclavo:~# lsmod | grep zfs
+	zfs                  2707456  0
+	zunicode              331776  1 zfs
+	zavl                   16384  1 zfs
+	zcommon                53248  1 zfs
+	znvpair                90112  2 zcommon,zfs
+	spl                    98304  3 znvpair,zcommon,zfs
+	root@esclavo:~#
+
+Per crear el raid Z amb zpool:
+
+	root@esclavo:~# zpool create itiel raidz -m /raid /dev/sdb /dev/sdc /dev/sdd spare /dev/sde -f
+	root@esclavo:~#
+
+	NOTA: S'ha afegit un disc spare per poder fer les proves pertinents.
+
+Comprovació de l'estat del raid Z:
+
+	root@esclavo:~# df -h | grep /raid
+	itiel            139M      0  139M   0% /raid
+	root@esclavo:~#
+
+	root@esclavo:~# zfs list
+	NAME    USED  AVAIL  REFER  MOUNTPOINT
+	itiel  83,9K   138M  24,0K  /raid
+	root@esclavo:~#
+
+	root@esclavo:~# zpool status
+	  pool: itiel
+	 state: ONLINE
+	  scan: none requested
+	config:
+
+		NAME        STATE     READ WRITE CKSUM
+		itiel       ONLINE       0     0     0
+		  raidz1-0  ONLINE       0     0     0
+			sdb     ONLINE       0     0     0
+			sdc     ONLINE       0     0     0
+			sdd     ONLINE       0     0     0
+		spares
+		  sde       AVAIL   
+
+	errors: No known data errors
+	root@esclavo:~#
+
+
+# RECUPERACIÓ RAIDZ
+-------------------
+
+Simulació d'un dels discos danyats. A diferència de mdadm, aquest no té una comanda per esborrar el contigut de la partició. Comprovació de la partició conforme és part del raid Z:
+
+	root@esclavo:/# fdisk /dev/sdb
+
+	Bienvenido a fdisk (util-linux 2.29.2).
+	Los cambios solo permanecerán en la memoria, hasta que decida escribirlos.
+	Tenga cuidado antes de utilizar la orden de escritura.
+
+
+	Orden (m para obtener ayuda): i
+	Número de partición (1,9, valor predeterminado 9): 1
+
+		     Device: /dev/sdb1
+		      Start: 2048
+		        End: 186367
+		    Sectors: 184320
+		       Size: 90M
+		       Type: /usr de Solaris y ZFS de Apple
+		  Type-UUID: 6A898CC3-1DD2-11B2-99A6-080020736631
+		       UUID: B50FA690-A9A6-7C4F-A77E-3FF795A37092
+		       Name: zfs-4ea28b5426bb4a5b
+
+	Orden (m para obtener ayuda): d
+	Número de partición (1,9, valor predeterminado 9): 1
+
+	Se ha borrado la partición 1.
+
+	Orden (m para obtener ayuda): n
+	Número de partición (1-8,10-128, valor predeterminado 1): p
+	El valor está fuera del rango.
+	Número de partición (1-8,10-128, valor predeterminado 1): 1
+	Primer sector (34-204766, valor predeterminado 2048): 
+	Último sector, +sectores o +tamaño{K,M,G,T,P} (2048-186367, valor predeterminado 186367): 
+
+	Crea una nueva partición 1 de tipo 'Linux filesystem' y de tamaño 90 MiB.
+	Partición #1: contiene un zfs_member en la firma.
+
+	¿Desea eliminar la firma? [S]í/[N]o: s
+
+	La firma se borrará mediante una orden de escritura.
+
+	Orden (m para obtener ayuda): i
+	Número de partición (1,9, valor predeterminado 9): 1
+
+		     Device: /dev/sdb1
+		      Start: 2048
+		        End: 186367
+		    Sectors: 184320
+		       Size: 90M
+		       Type: Sistema de ficheros de Linux
+		  Type-UUID: 0FC63DAF-8483-4772-8E79-3D69D8477DE4
+		       UUID: A2F41004-D6D2-4686-8337-1CD4CBCE7703
+
+	Orden (m para obtener ayuda): w
+	Se ha modificado la tabla de particiones.
+	Llamando a ioctl() para volver a leer la tabla de particiones.
+	Fallo al leer de nuevo la tabla de particiones.: Dispositivo o recurso ocupado
+
+	El núcleo todavía usa la tabla antigua. La nueva tabla se usará en el próximo reinicio o después de que usted ejecute partprobe(8) o kpartx(8).
+
+	root@esclavo:/#
+
+Després de forçar que el disc /dev/sdb es trenqués la partició fent un formateig, l'estat actual del raid és:
+
+	root@esclavo:~# zpool status
+	  pool: itiel
+	 state: DEGRADED
+	status: One or more devices could not be used because the label is missing or
+		invalid.  Sufficient replicas exist for the pool to continue
+		functioning in a degraded state.
+	action: Replace the device using 'zpool replace'.
+	   see: http://zfsonlinux.org/msg/ZFS-8000-4J
+	  scan: none requested
+	config:
+
+		NAME                      STATE     READ WRITE CKSUM
+		itiel                     DEGRADED     0     0     0
+		  raidz1-0                DEGRADED     0     0     0
+			17938557514020867377  UNAVAIL      0     0     0  was /dev/sdb1
+			sdc                   ONLINE       0     0     0
+			sdd                   ONLINE       0     0     0
+		spares
+		  sde                     AVAIL   
+
+	errors: No known data errors
+	root@esclavo:~# 
+
+En aquest punt, s'ha d'afegir un nou disc reemplaçant al que està no disponible:
+
+	root@esclavo:~# zpool replace -f itiel /dev/sdb1 /dev/sdf1
+	root@esclavo:~#
+
+	root@esclavo:~# zpool status
+	  pool: itiel
+	 state: ONLINE
+	  scan: resilvered 69,4M in 0h0m with 0 errors on Mon May 13 19:01:04 2019
+	config:
+
+		NAME        STATE     READ WRITE CKSUM
+		itiel       ONLINE       0     0     0
+		  raidz1-0  ONLINE       0     0     0
+			sdf1    ONLINE       0     0     0
+			sdc     ONLINE       0     0     0
+			sdd     ONLINE       0     0     0
+		spares
+		  sde       AVAIL   
+
+	errors: No known data errors
+	root@esclavo:~#
+	
+	NOTA: Ens indica que ha estat resincronitzat.
+
+Per a què el disc spare entri automàticament en acció quan un cau com a fallit s'ha de configurar
+el fitxer /etc/zfs/zed.d/zed.rc:
+
+	root@esclavo:~# cat /etc/zfs/zed.d/zed.rc 
+	.
+	.
+	.	
+	##
+	# Replace a device with a hot spare after N checksum errors are detected.
+	# Disabled by default; uncomment to enable.
+	#
+	ZED_SPARE_ON_CHECKSUM_ERRORS=10
+
+	##
+	# Replace a device with a hot spare after N I/O errors are detected.
+	# Disabled by default; uncomment to enable.
+	#
+	ZED_SPARE_ON_IO_ERRORS=1
+	.
+	.
+	.
+	root@esclavo:~#
+
+També s'ha d'indicar que el raid faci autoreplace:
+
+	root@esclavo:~# zpool set autoreplace=on itiel
+	root@esclavo:~#
+
+	root@esclavo:~# zpool get autoreplace itiel
+	NAME   PROPERTY     VALUE    SOURCE
+	itiel  autoreplace  on       local
+	root@esclavo:~#
+
+Després de provar, el servei ZFS està buguejat i no fa el canvi automàticament. S'ha de fer
+manualment:
+
+	root@esclavo:~# zpool replace -f itiel /dev/sdb1 /dev/sde
+	root@esclavo:~#
+
+	root@esclavo:~# zpool status
+	  pool: itiel
+	 state: DEGRADED
+	status: One or more devices could not be used because the label is missing or
+		invalid.  Sufficient replicas exist for the pool to continue
+		functioning in a degraded state.
+	action: Replace the device using 'zpool replace'.
+	   see: http://zfsonlinux.org/msg/ZFS-8000-4J
+	  scan: resilvered 49,5K in 0h0m with 0 errors on Mon May 13 19:47:44 2019
+	config:
+
+		NAME                        STATE     READ WRITE CKSUM
+		itiel                       DEGRADED     0     0     0
+		  raidz1-0                  DEGRADED     0     0     0
+			spare-0                 UNAVAIL      0     0     0
+			  12479254020888344351  UNAVAIL      0     0     0  was /dev/sdb1
+			  sde                   ONLINE       0     0     0
+			sdc                     ONLINE       0     0     0
+			sdd                     ONLINE       0     0     0
+		spares
+		  sde                       INUSE     currently in use
+
+	errors: No known data errors
+	root@esclavo:~#
+
+
+# CREACIÓ DE CLUSTER DE DISCOS AMB DRBD
+---------------------------------------
+
+Primer s'ha d'instal·lar el paquet gestor de drbd. Després s'ha de crear el fitxer de configuració
+del disc que serà compartit.
+Existeixen tres tipus de protocols de sincronització, el més utilitzat és el C.
+
+protocol A: protocol de replicació asíncrona; sovint s’utilitza en escenaris de replicació de llarga distància.
+Protocol B: Protocol de replicació semincrònic, protocol síncrona de memòria.
+protocol C: comunament utilitzat per a nodes en xarxes de curta distància; és, amb diferència, el protocol de replicació
+més utilitzat en configuracions DRBD. Protocol de replicació síncrona. Les operacions d’escriptura locals al node primari 
+es consideren completades només després que s’hagin confirmat l’escriptura de disc local i remot. Com a resultat, es garanteix
+que la pèrdua d'un sol node no suposa cap pèrdua de dades. La pèrdua de dades és, per descomptat, inevitable fins i tot amb aquest 
+protocol de replicació si els dos nodes (o els seus subsistemes d’emmagatzematge) es destrueixen de manera irreversible 
+al mateix temps.
+
+
+Fitxer de configuració per al disc compartit. El recurs es diu raid i els nodes s'han de dir exactament com el hostname
+de l'equip.
+
+	root@esclavo1:~# cat /etc/drbd.d/raid.res 
+	resource raid {
+	  protocol C;
+	  meta-disk internal;
+	  device /dev/drbd1;
+	  syncer {
+	    verify-alg sha1;
+	  }
+	  net {
+	    allow-two-primaries;
+	  }
+	  on esclavo1 {
+	    disk /dev/sdb1;
+	    address 192.168.56.113:7789;
+	  }
+	  on esclavo2 {
+	    disk /dev/sdb1;
+	    address 192.168.56.114:7789;
+	  }
+	}
+	root@esclavo1:~#
+
+Inicialització de les metadades als discos:
+	
+	root@esclavo1:~# drbdadm create-md raid
+	md_offset 103804928
+	al_offset 103772160
+	bm_offset 103768064
+
+	Found some data
+
+	 ==> This might destroy existing data! <==
+
+	Do you want to proceed?
+	[need to type 'yes' to confirm] yes
+
+	initializing activity log
+	NOT initializing bitmap
+	Writing meta data...
+	New drbd meta data block successfully created.
+	success
+	root@esclavo1:~#
+
+	root@esclavo1:~# drbd-overview
+	 1:raid/0  Unconfigured . . 
+	root@esclavo1:~#
+
+	root@esclavo2:~# drbdadm create-md raid
+	md_offset 103804928
+	al_offset 103772160
+	bm_offset 103768064
+
+	Found some data
+
+	 ==> This might destroy existing data! <==
+
+	Do you want to proceed?
+	[need to type 'yes' to confirm] yes
+
+	initializing activity log
+	NOT initializing bitmap
+	Writing meta data...
+	New drbd meta data block successfully created.
+	success
+	root@esclavo2:~#
+
+Activació del recurs en ambdós costats:
+
+	root@esclavo1:~# drbdadm up raid
+	root@esclavo1:~# 
+
+	root@esclavo1:~# cat /proc/drbd
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:Connected ro:Secondary/Secondary ds:Inconsistent/Inconsistent C r-----
+		ns:0 nr:0 dw:0 dr:0 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:101336
+	root@esclavo1:~# 
+
+	root@esclavo2:~# drbdadm up raid
+	root@esclavo2:~#
+
+	root@esclavo2:~# cat /proc/drbd
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:Connected ro:Secondary/Secondary ds:Inconsistent/Inconsistent C r-----
+		ns:0 nr:0 dw:0 dr:0 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:101336
+	root@esclavo2:~#
+
+Assignació de node primari al host "esclavo2":
+
+	root@esclavo2:~# drbdadm -- --overwrite-data-of-peer primary raid
+	root@esclavo2:~#
+
+Vista de la sincronització entres el dos nodes:
+
+	root@esclavo2:~# cat /proc/drbd 
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:SyncSource ro:Primary/Secondary ds:UpToDate/Inconsistent C r-----
+		ns:988 nr:0 dw:0 dr:988 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:100348
+		[>....................] sync'ed:  4.0% (100348/101336)K
+		finish: 0:01:23 speed: 988 (988) K/sec
+	root@esclavo2:~# cat /proc/drbd 
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:SyncSource ro:Primary/Secondary ds:UpToDate/Inconsistent C r-----
+		ns:7224 nr:0 dw:0 dr:7224 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:94112
+		[=>..................] sync'ed: 12.0% (94112/101336)K
+		finish: 0:00:49 speed: 1,804 (1,804) K/sec
+	root@esclavo2:~# cat /proc/drbd 
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:SyncSource ro:Primary/Secondary ds:UpToDate/Inconsistent C r-----
+		ns:16464 nr:0 dw:0 dr:16464 al:8 bm:0 lo:0 pe:2 ua:0 ap:0 ep:1 wo:f oos:85208
+		[===>................] sync'ed: 20.0% (85208/101336)K
+		finish: 0:00:31 speed: 2,688 (2,688) K/sec
+	root@esclavo2:~# cat /proc/drbd 
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:Connected ro:Primary/Secondary ds:UpToDate/UpToDate C r-----
+		ns:101336 nr:0 dw:0 dr:101336 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:0
+	root@esclavo2:~#
+
+	root@esclavo1:~# cat /proc/drbd 
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:SyncTarget ro:Secondary/Primary ds:Inconsistent/UpToDate C r-----
+		ns:0 nr:44016 dw:44016 dr:0 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:57320
+		[========>...........] sync'ed: 48.0% (57320/101336)K
+		finish: 0:00:12 speed: 4,400 (4,400) want: 8,280 K/sec
+	root@esclavo1:~# cat /proc/drbd 
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:Connected ro:Secondary/Primary ds:UpToDate/UpToDate C r-----
+		ns:0 nr:101336 dw:101336 dr:0 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:0
+	root@esclavo1:~#
+
+Un cop s'ha fet la sincronització, el dispositiu /dev/drbd1 indicat en el fitxer de configuració, ja queda llest.
+Només cal afegir un sistema de fitxers i muntar-lo:
+
+	root@esclavo2:~# mkfs.ext4 /dev/drbd1
+	mke2fs 1.43.4 (31-Jan-2017)
+	Se está creando un sistema de ficheros con 101336 bloques de 1k y 25376 nodos-i
+	UUID del sistema de ficheros: 60433608-2ef9-4b62-aaee-cd43d88b5737
+	Respaldo del superbloque guardado en los bloques: 
+		8193, 24577, 40961, 57345, 73729
+
+	Reservando las tablas de grupo: hecho                           
+	Escribiendo las tablas de nodos-i: hecho                           
+	Creando el fichero de transacciones (4096 bloques): hecho
+	Escribiendo superbloques y la información contable del sistema de ficheros:  0/1hecho
+
+	root@esclavo2:~#
+
+	NOTA: El format es fa en el node amb rol primary.
+
+	root@esclavo2:~# mount /dev/drbd1 /raid/
+	root@esclavo2:~#
+
+	root@esclavo2:~# df -h | grep /raid
+	/dev/drbd1        92M   1,6M   84M   2% /raid
+	root@esclavo2:~#
+
+Si s'intenta muntar el disc en el node esclau no deixa i ens avisa de la següent manera:
+
+	root@esclavo1:~# mount /dev/drbd1 /raid
+	mount: /dev/drbd1 está protegido contra escritura; se monta como sólo lectura
+	mount: el montaje de /dev/drbd1 en /raid falló: Tipo de medio erróneo
+	root@esclavo1:~#
+
+	root@esclavo1:~# mount /dev/sdb1 /raid
+	mount: tipo de sistema de ficheros 'drbd' desconocido
+	root@esclavo1:~#
+
+Per canviar el rol és tan senzill com desmuntar el disc en el node "esclavo2" i invertir els rols:
+
+	$ drbdadm secondary raid
+	$ drbdadm primary raid
+	$ mount /dev/drbd1 <punt_de_muntatge>
+
+
+# RECUPERACIÓ CLUSTER DE DISCOS
+-------------------------------
+
+Es forçarà a que el disc primari deixi de funcionar i es partirà d'aquest punt per a començar la reparació:
+
+	root@esclavo2:~# df -h | grep /raid
+	/dev/drbd1        92M   1,6M   84M   2% /raid
+	root@esclavo2:~#
+
+	root@esclavo2:~# fdisk /dev/sdb
+
+	Bienvenido a fdisk (util-linux 2.29.2).
+	Los cambios solo permanecerán en la memoria, hasta que decida escribirlos.
+	Tenga cuidado antes de utilizar la orden de escritura.
+
+
+	Orden (m para obtener ayuda): d
+	Se ha seleccionado la partición 1
+	Se ha borrado la partición 1.
+
+	Orden (m para obtener ayuda): w
+	Se ha modificado la tabla de particiones.
+	Llamando a ioctl() para volver a leer la tabla de particiones.
+	Fallo al leer de nuevo la tabla de particiones.: Dispositivo o recurso ocupado
+
+	El núcleo todavía usa la tabla antigua. La nueva tabla se usará en el próximo reinicio o después de que usted ejecute partprobe(8) o kpartx(8).
+
+	root@esclavo2:~#
+
+Després de reinicialitzar la màquina, aquest és l'estat del disc que estava com a primari:
+
+	root@esclavo2:~# cat /proc/drbd 
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:Connected ro:Secondary/Secondary ds:Diskless/UpToDate C r-----
+		ns:0 nr:0 dw:0 dr:0 al:0 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:0
+	root@esclavo2:~#
+
+Com a conseqüència, el dispositiu ha estat danyat i no s'ha pogut muntar:
+
+	root@esclavo2:~# df -h | grep raid
+	root@esclavo2:~#
+
+Per tant, cal inserir un nou disc amb la nomenclatura especificada a l'arxiu de configuració raid.res i donar-li format:
+
+	root@esclavo2:~# fdisk /dev/sdb 
+
+	Bienvenido a fdisk (util-linux 2.29.2).
+	Los cambios solo permanecerán en la memoria, hasta que decida escribirlos.
+	Tenga cuidado antes de utilizar la orden de escritura.
+
+
+	Orden (m para obtener ayuda): n
+	Tipo de partición
+	   p   primaria (0 primaria(s), 0 extendida(s), 4 libre(s))
+	   e   extendida (contenedor para particiones lógicas)
+	Seleccionar (valor predeterminado p): p
+	Número de partición (1-4, valor predeterminado 1): 
+	Primer sector (2048-204799, valor predeterminado 2048): 
+	Último sector, +sectores o +tamaño{K,M,G,T,P} (2048-204799, valor predeterminado 204799): 
+
+	Crea una nueva partición 1 de tipo 'Linux' y de tamaño 99 MiB.
+	Partición #1: contiene un drbd en la firma.
+
+	¿Desea eliminar la firma? [S]í/[N]o: s
+
+	La firma se borrará mediante una orden de escritura.
+
+	Orden (m para obtener ayuda): w
+	Se ha modificado la tabla de particiones.
+	Llamando a ioctl() para volver a leer la tabla de particiones.
+	Se están sincronizando los discos.
+
+	root@esclavo2:~#
+
+Es torna a muntar el raid amb el disc ja en marxa:
+
+	root@esclavo2:~# drbdadm create-md raid
+	md_offset 103804928
+	al_offset 103772160
+	bm_offset 103768064
+
+	Found some data
+
+	 ==> This might destroy existing data! <==
+
+	Do you want to proceed?
+	[need to type 'yes' to confirm] yes
+
+	initializing activity log
+	NOT initializing bitmap
+	Writing meta data...
+	New drbd meta data block successfully created.
+	success
+	root@esclavo2:~#
+
+I es pot indicar si no està aixecat, que en aquest cas ja ho estava i retorna un missatge d'error:
+
+	root@esclavo2:~# drbdadm up raid
+	raid: Failure: (102) Local address(port) already in use.
+	Command 'drbdsetup-84 connect raid ipv4:192.168.56.114:7789 ipv4:192.168.56.113:7789 --protocol=C --verify-alg=sha1 --allow-two-primaries=yes' terminated with exit code 10
+	root@esclavo2:~#
+
+Finalment, si s'observa l'estat actual d'aquest, es pot comprovar com passat un cert temps ja està sincronitzat i funcionant:
+
+	root@esclavo2:~# cat /proc/drbd
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:Connected ro:Secondary/Primary ds:UpToDate/UpToDate C r-----
+		ns:0 nr:101336 dw:101336 dr:0 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:0
+	root@esclavo2:~#
+	
+	root@esclavo2:~# drbd-overview
+	 1:raid/0  Connected Secondary/Primary UpToDate/UpToDate 
+	root@esclavo2:~#
+
+Comprovació del funcionament en "esclavo1" amb el cluster muntat i amb un FS ext4:
+
+	root@esclavo1:~# ls /raid/
+	lost+found  myfile
+	root@esclavo1:~#
+
+Si es tornen a repetir les passes anteriors, però, ara "esclavo2" passarà a ser el màster un altre cop:
+
+	root@esclavo2:~# drbd-overview
+	 1:raid/0  Connected Secondary/Primary UpToDate/UpToDate 
+	root@esclavo2:~# cat /proc/drbd
+	version: 8.4.7 (api:1/proto:86-101)
+	srcversion: 7FA2FF168828B1B272D3F92 
+
+	 1: cs:WFConnection ro:Secondary/Unknown ds:UpToDate/DUnknown C r-----
+		ns:0 nr:101345 dw:101345 dr:0 al:8 bm:0 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:0
+	root@esclavo2:~#
+
+	root@esclavo2:~# drbdadm primary raid
+	root@esclavo2:~#
+
+	root@esclavo2:~# mount /dev/drbd1 /raid
+	root@esclavo2:~#
+
+	root@esclavo2:~# cd /raid/
+	root@esclavo2:~#
+
+	root@esclavo2:/raid# ls -l
+	total 13
+	drwx------ 2 root root 12288 may 15 18:08 lost+found
+	-rw-r--r-- 1 root root    48 may 15 18:14 myfile
+	root@esclavo2:/raid#
+
+	root@esclavo2:/raid# cat myfile 
+	askldjaslñkjdhlakjsdhlkajhsdkjhasdkjlaskdhashd
+	root@esclavo2:/raid#
+
+Després d'afegir de nou el disc i crear la partició necessària, s'ha tornat a afegir les metadades a aquesta:
+
+	root@esclavo1:~# drbdadm up raid
+	No valid meta data found
+	Command 'drbdmeta 1 v08 /dev/sdb1 internal apply-al' terminated with exit code 255
+	root@esclavo1:~# drbdadm create-md raid
+	md_offset 103804928
+	al_offset 103772160
+	bm_offset 103768064
+
+	Found some data
+
+	 ==> This might destroy existing data! <==
+
+	Do you want to proceed?
+	[need to type 'yes' to confirm] yes
+
+	initializing activity log
+	NOT initializing bitmap
+	Writing meta data...
+	New drbd meta data block successfully created.
+	success
+	root@esclavo1:~#
+
+	root@esclavo1:~# drbd-overview
+	 1:raid/0  SyncTarget Secondary/Primary Inconsistent/UpToDate 
+		[>....................] sync'ed:  4.0% (99232/101336)K          
+	root@esclavo1:~# 
+
+	root@esclavo1:~# drbd-overview
+	 1:raid/0  Connected Secondary/Primary UpToDate/UpToDate 
+	root@esclavo1:~#	
+
+
+# COMPARTICIÓ RAID SMB
+----------------------
+
+Abans de començar l'estructura de directoris a compartir, es convenient assignar el punt de muntatge al grup al qual se li vol
+compartir.
+
+	root@esclavo:/# chown :sambashare raid
+	root@esclavo:/# ls -l | grep raid
+	drwxr-xr-x   4 root sambashare  1024 mai 11 13:50 raid
+	root@esclavo:/# 
+	
+	NOTA: El grup es manté després de reinicialitzar la màquina.
+
+Primer de tot, es crearà un directori específic per al raid i s'establiran els permisos adients:
+
+	root@esclavo:/raid# mkdir shared
+	root@esclavo:/raid#
+
+	root@esclavo:/raid# chown sadmin:sambashare shared/
+	root@esclavo:/raid#
+
+	root@esclavo:/raid# chmod 2770 shared/
+	root@esclavo:/raid#
+
+	root@esclavo:/raid# ls -l
+	total 13
+	drwx------ 2 root   root       12288 mai  9 11:52 lost+found
+	drwxrws--- 2 sadmin sambashare  1024 mai 11 13:52 shared
+	root@esclavo:/raid#
+
+	NOTA: Se li ha assignat a l'usuari administrador del samba que es va crear amb el grup que comparteixen tots els usuaris de samba.
+
+Un cop creat el directori, s'ha d'indicar al dimoni samba que ha de compartir-lo:
+
+	root@esclavo:~# tail -n7 /etc/samba/smb.conf
+	[raid]
+	    path = /raid/shared
+	    browseable = yes
+	    read only = no
+	    force create mode = 0660
+	    force directory mode = 2770
+	    valid users = @sambashare @sadmin
+	root@esclavo:~#
+
+És molt important recarregar els fitxers de configuració, per a això, es pot fer un reload o un restart en el seu defecte:
+
+	root@esclavo:~# service smbd restart 
+	root@esclavo:~#
+
+Prova des d'un client amb el smbclient que funcioni tot correctament:
+
+	itiel@X550JX:~$ smbclient //192.168.56.102/raid -U itielsmb
+	WARNING: The "syslog" option is deprecated
+	Enter WORKGROUP\itielsmb's password: 
+	Try "help" to get a list of possible commands.
+	smb: \> ls
+	  .                                   D        0  Sat May 11 14:06:25 2019
+	  ..                                  D        0  Sat May 11 13:50:03 2019
+
+			190264 blocks of size 1024. 174664 blocks available
+	smb: \> put ficherin 
+	putting file ficherin as \ficherin (4,9 kb/s) (average 4,9 kb/s)
+	smb: \> ls
+	  .                                   D        0  Sat May 11 14:08:49 2019
+	  ..                                  D        0  Sat May 11 13:50:03 2019
+	  ficherin                            A       15  Sat May 11 14:08:49 2019
+
+			190264 blocks of size 1024. 174663 blocks available
+	smb: \> 
+	itiel@X550JX:~$
+
+Comprovació des del servidor que els permissos estiguin correctes i que existeixi el fitxer "ficherin":
+
+	root@esclavo:/raid/shared# ls -l
+	total 1
+	-rwxrw-r-- 1 itielsmb sambashare 15 mai 11 14:08 ficherin
+	root@esclavo:/raid/shared#
+
+	NOTA: Els permissos són els que s'esperaven i el propietari usuari/grup també.
+
+Tots els raids, siguin el que sigui el seu nivell, es comparteixen del mateix mode, de cara a l'usuari és transparent i de cara a
+l'administrador és un dispositiu més que tan sols s'ha d'afegir o en el seu defecte, si es modifica el raid i es manté amb el mateix
+UUID, continuarà sent igual. 
+També és comparteix de igual mode amb zfs, és un punt de muntatge que en aquest cas se li ha creat la carpeta shared amb les passes
+anteriors i ha funcionat igual. També passa l'ho mateix amb drbd, compartint la carpeta shared amb les propietats necessàries situada 
+al punt de muntatge /raid definit en el fitxer de configuració de smb.conf, funciona correctament.
+
+
+# SEGURETAT
+-----------
+
+Configuració iptables per a compartir els recursos per samba en el node primary (esclavo2):
+
+	iptables -A INPUT -p udp -m udp -d 192.168.56.114 -s 192.168.56.113 --dport 137 -j ACCEPT
+	iptables-A INPUT -p udp -m udp -d 192.168.56.114 -s 192.168.56.113 --dport 138 -j ACCEPT
+	iptables -A INPUT -m state --state NEW -m tcp -p tcp -d 192.168.56.114 -s 192.168.56.113 --dport 139 -j ACCEPT
+	iptables -A INPUT -m state --state NEW -m tcp -p tcp -d 192.168.56.114 -s 192.168.56.113 --dport 445 -j ACCEPT
+
+Configuració drbd node "esclavo1":
+
+	iptables -A INPUT -m state --state ESTABLISHED -j ACCEPT
+	iptables -A INPUT -p tcp -s 192.168.56.114 --dport 7789 -j ACCEPT
+
+	iptables -A OUTPUT -m state --state ESTABLISHED -j ACCEPT
+	iptables -A OUTPUT -p tcp -d 192.168.56.114 --dport 7789 -j ACCEPT
+
+Configuració drbd node "esclavo2":
+
+	iptables -A INPUT -m state --state ESTABLISHED -j ACCEPT
+	iptables -A INPUT -p tcp -s 192.168.56.113 --dport 7789 -j ACCEPT
+
+	iptables -A OUTPUT -m state --state ESTABLISHED -j ACCEPT
+	iptables -A OUTPUT -p tcp -d 192.168.56.113 --dport 7789 -j ACCEPT

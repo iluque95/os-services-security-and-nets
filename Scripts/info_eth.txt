@@ -1,0 +1,83 @@
+---------------- Data inici: 2019-03-12 21:05:38 ----------------
+
+Usuaris del sistema 
+-------------------
+ 
+Usuaris humans:		root,entel
+Usuaris connectats:	root     tty1         2019-03-12 20:51
+			root     pts/0        2019-03-12 20:52 (192.168.56.1)
+
+Configuració de l'equip 
+-----------------------
+ 
+Direcció del router: 	192.168.1.1
+Direcció externa: 	88.27.209.220 (220.red-88-27-209.staticip.rima-tde.net.)
+Direccions dels DNS: 	80.58.61.250
+			80.58.61.254
+
+Informació de les interfícies
+-----------------------------
+
+Nom de la interfície: 	enp0s10 (No configurada)
+Estat: 			Activa
+Adreça MAC: 		08:00:27:fe:9d:56
+
+Nom de la interfície: 	enp0s9 (No configurada)
+Estat: 			Activa
+Adreça MAC: 		08:00:27:53:cc:c2
+Direcció IP privada: 	192.168.56.104
+Màscara de l'equip: 	255.255.255.0 (/24)
+Direcció broadcast: 	192.168.56.255
+Direcció de xarxa: 	192.168.56.0
+Nom local equip: 	No s'ha pogut obtindre
+Nom local xarxa: 	No s'ha pogut obtindre
+Nom DNS de l'equip: 	No s'ha pogut obtindre
+Nom DNS de la xarxa: 	No s'ha pogut obtindre
+MTU: 			1500
+
+Nom de la interfície: 	iclient (dhcp)
+Estat: 			Activa
+Adreça MAC: 		08:00:27:c7:5f:10
+Direcció IP privada: 	192.168.1.39
+Màscara de l'equip: 	255.255.255.0 (/24)
+Direcció broadcast: 	192.168.1.255
+Direcció de xarxa: 	192.168.1.0
+Nom local equip: 	No s'ha pogut obtindre
+Nom local xarxa: 	No s'ha pogut obtindre
+Nom DNS de l'equip: 	No s'ha pogut obtindre
+Nom DNS de la xarxa: 	No s'ha pogut obtindre
+MTU: 			1500
+
+Nom de la interfície: 	iservidor (static)
+Estat: 			Activa
+Adreça MAC: 		08:00:27:21:fa:e8
+Direcció IP privada: 	10.1.2.30
+Màscara de l'equip: 	255.255.255.0 (/24)
+Direcció broadcast: 	10.1.2.255
+Direcció de xarxa: 	10.1.2.0
+Nom local equip: 	No s'ha pogut obtindre
+Nom local xarxa: 	servidor
+Nom DNS de l'equip: 	No s'ha pogut obtindre
+Nom DNS de la xarxa: 	No s'ha pogut obtindre
+MTU: 			1500
+
+Nom de la interfície: 	lo (loopback)
+Estat: 			Desconegut
+Adreça MAC: 		00:00:00:00:00:00
+Direcció IP privada: 	127.0.0.1
+Màscara de l'equip: 	255.0.0.0 (/8)
+Direcció broadcast: 	No s'ha pogut obtindre
+Direcció de xarxa: 	127.0.0.0
+Nom local equip: 	localhost
+Nom local xarxa: 	loopback
+Nom DNS de l'equip: 	localhost.
+Nom DNS de la xarxa: 	No s'ha pogut obtindre
+MTU: 			65536
+
+ERRORS
+------
+
+Possibles problemes amb la configuració de la interfície enp0s10 amb configuració 
+
+
+---------------- Data fi: 2019-03-12 21:05:39 ----------------

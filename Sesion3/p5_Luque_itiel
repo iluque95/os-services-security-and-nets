@@ -1,0 +1,40 @@
+Pràctica 3 - Avaluació
+
+Pràctica 3 - Avaluació
+
+- Condicions inicials.
+    - Cal seguir les directrius detallades als enunciats de les sessions de la pràctica 3.
+    - En aquesta document es modifiquen, o amplien, els detalls de configuració per establir l'escenari d'avaluació.
+   
+- Es vol preparar un servidor d'emmagatzematge en xarxa (NAS, Network Attached Storage).
+    - L'equip es connecta en mode adaptador pont del VirtualBox i es configura per DHCP.
+    - El nom de l'equip és: NAS-SEAX.
+    - En el servidor existeixen 2 usuaris que comparteixen fitxers (entel:letne i seax:xaes) i l'administrador (root:toor).
+    - El servidor disposarà d'un RAID-Z2, de 128MB de capacitat, per als fitxers dels usuaris del sistema (/home).
+   
+- Es podrà accedir al servidor mitjançant SFTP, SAMBA i WEBBAV
+    - Els recursos compartits han de ser visibles i accessibles des de la xarxa.
+    - Els usuaris entel i seax han de poder accedir als seus fitxers amb els protocols SFTP, SAMBA i WEBDAV.
+    - Els equips clients han de poder muntar els recursos tant manualment com automàticament.
+    - Cal verificar el funcionament amb entorns Debian 9 i Windows 10.
+    - Cal documentar les proves que acreditin el correcte funcionament.
+
+- El servidor s'haurà de poder administrar mitjançant SSH i WEBMIN.
+    - L'usuari administrador ha de poder accedir i administrar remòtament el servidor.
+    - Cal verificar el funcionament amb entorns Debian 9 i Windows 10.
+    - Cal documentar les proves que acreditin el correcte funcionament.
+   
+- El servidor permetrà accedir-hi mitjançant una xarxa privada virtual amb OPENVPN.
+    - Els usuaris root, entel i seacx han de poder accedir al servidor mitjançant OPENVPN.
+    - Cal verificar el funcionament amb entorns Debian 9 i Windows 10.
+    - Cal documentar les proves que acreditin el correcte funcionament.
+   
+- Es lliurarà el següent material.
+    - Informe de la pràctica, amb el nom "informe.txt", per Atenea. Ha de seguir les directrius (estructura, contingut i format d'informe) comentades a classe i/o Atenea .
+    - Els fitxers que s'hagin creat necessaris per al funcionament de l'equip per Atenea
+    - La màquina virtual, amb els scripts informe i fitxers al directori de l’usuari root.
+
+- La valoració de la pràctica seguirà els següents criteris.
+    - A títol orientatiu, el resultat de la pràctica cal que doni resposta a les qüestions plantejades en cada sessió a Atenea.
+    - Es valorarà que l'equip realitzi la seva funció [5-10] o no [0-5).
+    - En l'informe es valorarà la claredat de les explicacions i l'eficiència de la implementació.

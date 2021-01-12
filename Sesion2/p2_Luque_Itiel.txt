@@ -1,0 +1,35 @@
+Pràctica 2 - Sessió 2 - Implementar un servei DHCP
+
+Pràctica 2- Implementar un servei DHCP
+
+1- Configurar un servidor DHCP .
+    - Cal que doni servei a les xarxes que ho necessitin.
+    - Utilitzar rangs d'IPs diferents en funció de la xarxa.
+    - Cal permetre un pool d'adreces d'assignació dinàmica i reserva de d'adreces.
+    - Raonar com utilitzar-lo per millorar la seguretat de la xarxa.
+    - Configurar correctament el DDNS.
+
+2- Programar un petits script que obtingui per a una interfície de xarxa la següent informació:    
+    - Adreces IPs dels servidors DHCP que hi ha a la xarxa a la que pertany la interfície
+    - Adreça IP que s'ofereix i duració del préstec 
+
+3- Verificar el seu bon funcionament.   
+    - Implementar un escenari de treball amb dues xarxes servides pel mateix servidor.
+    - Realitzar les captures de xarxa adients i raonar els resultats.
+   
+4- Lliurar els resultats mitjançant Atenea (2 fitxers).
+    - Redactar l'informe de la pràctica p7_cognom1_nom.txt.
+    - Realitzar les proves necessàries per justificar els resultats i encapsular els fitxers necessaris en el fitxer p6_cognom1_nom.zip.
+
+5- A títol orientatiu el resulat de la pràctica cal que doni resposta a les següents qüestions:
+[*] -Quin escenari (VMs, adaptadors de xarxa i configuració) es necessita?
+[*] -Com s'instal·la el servidor dhcp?
+[*] -Com es configura el servidor dhcp (paràmetres)?
+[*]   - Com s'assigna una adreça dinàmicament?
+[*]   - Com es reserven adreces?
+[*]   - Com es donen rangs diferents d'adreces en funció de la xarxa?
+[*]  -Com es valida la configuració del servidor dhcp?
+[*]   -Relacionat amb l'anterior pregunta, com s'ha d'utilitzar el client DHCP (per consola i via fitxer /etc/network/interfaces) per validar el servidor?
+[*]   -Com es podria fer servir DHCP per millorar la seguretat d'una xarxa? Penseu si qualsevol màquina pel fet d'estar connectada a la xarxa ha de rebre configuració independentment de si és coneguda o no i a partir d'aquí, feu alguna proposta.  
+[*] - Com es configura el DDNS (paràmetres)?
+[*] - Com es comprovar que el DDNS està ben configurat?

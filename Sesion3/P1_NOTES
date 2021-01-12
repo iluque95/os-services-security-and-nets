@@ -1,0 +1,16 @@
+SMB: El passwd no tiene que estar en fstab, debe estar en un fichero y que sea solo de 
+lectura para ROOT.
+
+Indicar puertos en IPTables.
+
+Samba tiene comandas para comprobar la configuración.
+
+SMB tiene diferente sistema de permisos que Rsync por lo que se pierden a la hora de restaurar un backup.
+
+Comanda para vaciar buffer cuando se utiliza un gestor de backups (borgbackup).
+
+Pruebas locales para SMB.
+
+Pruebas con TCPDUMP para que se vea el movimiento de ficheros.
+
+

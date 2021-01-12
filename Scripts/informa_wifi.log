@@ -1,0 +1,241 @@
+*** AIXÒ SURT NOMÈS PER PANTALLA ***
+
+Inici 2019-03-06 20:54:08
+Comprovant usuaris del sistema... FET
+Comprovant configuració de l'equip... FET
+Recollint informació de l'interfície wlx00117f494b67... FET
+Comprovant xarxes Wi-Fi operatives (escanejant amb wlx00117f494b67)... FET
+Recollint informació de l'interfície wlx04922663d196... FET
+Comprovant xarxes Wi-Fi operatives (escanejant amb wlx04922663d196)... FET
+Recollint informació de l'interfície wlx0857000f10a2... FET
+La interfície es troba baixada. Aixencant... FET
+Comprovant xarxes Wi-Fi operatives (escanejant amb wlx0857000f10a2)... FET
+Fi 2019-03-06 20:54:39
+
+
+************************************
+
+---------------- Data inici: 2019-03-06 20:54:08 ----------------
+
+Usuaris del sistema 
+-------------------
+ 
+Usuaris humans:		root,entel,itiel,itiel2
+Usuaris connectats:	root     pts/0        2019-03-06 19:50 (192.168.56.1)
+
+Configuració de l'equip 
+-----------------------
+ 
+Direcció del router: 	10.0.4.2
+Direcció externa: 	147.83.201.98 (clients-xsf-98.upc.es.)
+Direccions dels DNS: 	192.168.43.1
+
+Informació de les interfícies
+-----------------------------
+
+Nom de la interfície: 	wlx00117f494b67 (No configurada)
+Estat: 			Desactivada
+Associació: 		Sense associar
+Adreça MAC: 		00:11:7f:49:4b:67
+Protocols suportats: 	IEEE 802.11
+
+Xarxes sense fil disponibles
+----------------------------
+
+Informació de les interfícies
+-----------------------------
+
+Nom de la interfície: 	wlx04922663d196 (No configurada)
+Estat: 			Activa
+Associació: 		Associada
+Adreça MAC: 		04:92:26:63:d1:96
+Protocols suportats: 	IEEE 802.11
+Nom de l'equip: 	seax
+Nom DNS l'equip: 	epsevg.upc.edu
+Direcció IP privada: 	192.168.43.51
+Màscara de l'equip: 	255.255.255.0 (/24)
+Direcció broadcast: 	192.168.43.255
+Direcció de xarxa: 	192.168.43.0
+Nom local de la xarxa: 	default
+Nom DNS de la xarxa: 	No s'ha pogut obtindre
+MTU: 			1500
+
+Xarxes sense fil disponibles
+----------------------------
+
+ESSID: 			sala2
+Adreça MAC AP: 		06:D1:3A:E8:EC:52
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		-71 dBm  
+Qualitat: 		39/70
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) PSK
+
+ESSID: 			pavo
+Adreça MAC AP: 		9E:2E:A1:52:2F:2B
+Freqüència i canal: 	2.437 GHz (Channel 6)
+Senyal: 		-45 dBm  
+Qualitat: 		65/70
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) PSK
+
+ESSID: 			eduroam
+Adreça MAC AP: 		A0:23:9F:9E:D7:10
+Freqüència i canal: 	2.472 GHz (Channel 13)
+Senyal: 		-77 dBm  
+Qualitat: 		33/70
+Xifrat:			802.11i/WPA2 Version 1
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		A0:23:9F:9E:D7:12
+Freqüència i canal: 	2.472 GHz (Channel 13)
+Senyal: 		-77 dBm  
+Qualitat: 		33/70
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			- (Xarxa oculta)
+Adreça MAC AP: 		D8:B1:90:C3:2C:41
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		-85 dBm  
+Qualitat: 		25/70
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+
+Informació de les interfícies
+-----------------------------
+
+Nom de la interfície: 	wlx0857000f10a2 (dhcp)
+Estat: 			Desactivada
+Associació: 		Sense associar
+Adreça MAC: 		08:57:00:0f:10:a2
+Protocols suportats: 	
+
+Xarxes sense fil disponibles
+----------------------------
+
+ESSID: 			- (Xarxa oculta)
+Adreça MAC AP: 		64:F6:9D:4A:EB:81
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		60/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+
+ESSID: 			eduroam
+Adreça MAC AP: 		64:F6:9D:5B:E9:B0
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		64/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		D8:B1:90:C3:2C:42
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		79/100  
+Qualitat: 		0/100
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			eduroam
+Adreça MAC AP: 		64:F6:9D:4A:EB:80
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		60/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+
+ESSID: 			eduroam
+Adreça MAC AP: 		D8:B1:90:C3:2C:40
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		77/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		64:F6:9D:5B:E9:B2
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		62/100  
+Qualitat: 		0/100
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			sala2
+Adreça MAC AP: 		06:D1:3A:E8:EC:52
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		74/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) PSK
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		64:F6:9D:4A:EB:82
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		60/100  
+Qualitat: 		0/100
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			- (Xarxa oculta)
+Adreça MAC AP: 		D8:B1:90:C3:2C:41
+Freqüència i canal: 	2.412 GHz (Channel 1)
+Senyal: 		76/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+
+ESSID: 			pavo
+Adreça MAC AP: 		9E:2E:A1:52:2F:2B
+Freqüència i canal: 	2.437 GHz (Channel 6)
+Senyal: 		100/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) PSK
+
+ESSID: 			eduroam
+Adreça MAC AP: 		A0:23:9F:9E:D7:10
+Freqüència i canal: 	2.472 GHz (Channel 13)
+Senyal: 		88/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+
+ESSID: 			UPCguest
+Adreça MAC AP: 		A0:23:9F:9E:D7:12
+Freqüència i canal: 	2.472 GHz (Channel 13)
+Senyal: 		91/100  
+Qualitat: 		0/100
+Xifrat:			Sense xifrat. Wifi oberta.
+
+ESSID: 			- (Xarxa oculta)
+Adreça MAC AP: 		A0:23:9F:9E:D7:11
+Freqüència i canal: 	2.472 GHz (Channel 13)
+Senyal: 		92/100  
+Qualitat: 		0/100
+Xifrat:			802.11i/WPA2 Version 1
+			Group Cipher CCMP
+			Pairwise Ciphers (1) CCMP
+			Authentication Suites (1) 802.1x
+
+
+---------------- Data fi: 2019-03-06 20:54:39 ----------------

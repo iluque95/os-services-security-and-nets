@@ -1,0 +1,448 @@
+Pràctica 2 - Sessió 2 - Implementar un servei DHCP. (Luque Díaz Itiel)
+
+
+# INDEX
+-------
+
+(*) PROGRAMARI NECESSARI...............17
+(*) FITXER RELACIONATS.................25
+(*) ESCENARI...........................38
+(*) DESCRIPCIÓ.........................47
+(*) CONFIGURACIÓ SERVIDOR DHCP.........57
+(*) CONFIGURACIÓ CLIENT...............177
+(*) DNS DINÀMIC.......................278
+(*) SCRIPT............................432
+
+
+# PROGRAMARI NECESSARI
+----------------------
+
+* Editor de textos (Gedit p.exemple)
+* nano/pico (opcionalment)
+* bind9 (apt-get install bind9)
+* isc-dhcp-server (apt-get install isc-dhcp-server)
+
+# FITXER RELACIONATS
+--------------------
+
+* /etc/bind/named.conf.local		-->	Configuració general de les zones.
+* /etc/bind/db.empty				--> Plantilla de configuració d'una zona.
+* /etc/bind/name.conf.options		--> Configuracions del dns bind9.
+* /etc/bind/directes-seax.edu		--> Base de dades amb les resolucions directes (nom->ip).
+* /etc/bind/inverses-seax.edu		--> Base de dades amb les resolucions inverses (ip->nom).
+* /var/cache/bind/named_dump.db		-->	Cache local del servidor DNS
+* /etc/dhcp/dhcpd.conf				--> Configuracions del servidor DHCP
+* /etc/default/isc-dhcp-server		--> Configuració de l'interficie a escoltar
+
+
+# ESCENARI
+----------
+* Servidor DHCP										--> 192.168.56.104/24
+* DNS màster 										--> 192.168.56.104/24
+* Dinàmic DNS 										--> 192.168.56.104/24
+* Interficie iservidor (Xarxa interna "servidor") 	--> 192.168.56.0/24 Rang: [.2,.30]
+* Interficie enp0s10   (Xarxa interna "itnet") 		--> 10.1.2.0/24 Rang: [.2,.29]
+
+
+# DESCRIPCIÓ
+------------
+
+Avui día és necessari fer servir un conjunt de paràmetres que fan d'aquests una configuració específica per a un entorn concret a treballar.
+La majoría d'usuaris no saben com administrar aquests valors o ni tan sols per aquest motiu, com a administradors és vol donar una certa
+configuració a una xarxa d'equips amb les seves direccions ips, netmasks, dns, gateway, etc.
+Amb un servidor DHCP s'aconsegueix fer-ho més simple i evita haver d'aprendre, des del punt de vista d'un usuari sense experiència, per a què
+serveixen cada un d'aquests.
+
+
+# CONFIGURACIÓ SERVIDOR DHCP
+----------------------------
+
+És necessari instal·lar el servei isc-dhcp-server i s'ha de configurar el fitxer /etc/default/isc-dhcp-server per a indicar per quina interficie escoltarà:
+
+	root@monitor:/etc/bind# cat /etc/default/isc-dhcp-server
+	INTERFACESv4="iservidor enp0s10"
+	INTERFACESv6=""
+	root@monitor:/etc/bind#
+
+
+	root@monitor:/etc/bind# cat /etc/dhcp/dhcpd.conf
+	ddns-update-style none;
+	default-lease-time 600;
+	max-lease-time 7200;
+	#ping true;
+	option domain-name-servers 127.0.0.1, 127.0.0.1;
+	option domain-name "seax.edu";
+	authorative;
+	log-facility local7;
+	 
+	subnet 192.168.56.0 netmask 255.255.255.0 {
+		range 192.168.56.2 192.168.56.30;
+		option subnet-mask 255.255.255.0;
+		option domain-name-servers 127.0.0.1, 127.0.0.1;
+		option domain-name "seax.edu";
+		option routers 192.168.56.1;
+		get-lease-hostnames true;
+		use-host-decl-names true;
+		default-lease-time 600;
+		max-lease-time 7200;
+	}
+
+	subnet 10.1.2.0 netmask 255.255.255.0 {
+		range 10.1.2.2 10.1.2.29;
+		option subnet-mask 255.255.255.0;
+		option domain-name-servers 127.0.0.1, 127.0.0.1;
+		option domain-name "seax.edu";
+		option routers 10.1.2.1;
+		get-lease-hostnames true;
+		use-host-decl-names true;
+		default-lease-time 600;
+		max-lease-time 7200;
+	}
+	root@monitor:/etc/bind#
+
+Per validar la configuració del client es fa servir la comanda:
+
+	root@monitor:/etc/bind# dhcpd -t -cf dhcpd.conf
+	Internet Systems Consortium DHCP Server 4.3.5
+	Copyright 2004-2016 Internet Systems Consortium.
+	All rights reserved.
+	For info, please visit https://www.isc.org/software/dhcp/
+	Can't open dhcpd.conf: No such file or directory
+
+	If you think you have received this message due to a bug rather
+	than a configuration issue please read the section on submitting
+	bugs on either our web page at www.isc.org or in the README file
+	before submitting a bug.  These pages explain the proper
+	process and the information we find helpful for debugging..
+
+	exiting.
+	root@monitor:/etc/bind#
+
+	NOTA: En aquest cas no hi ha cap tipus d'error. Està funcionant correctament.
+
+Els equips que demanin una ip s'els hi assignarà automàticament una ip del rang configurat.
+
+Per afegir diferents rangs i servir a dues xarxes totalment aïllades, s'ha de configurar les
+interfícies per les quals escoltarà el DHCP, en aquest cas, com es mostra, ho farà per la
+iservidor i enp0s10.
+Aquestes s'han de configurar manualment en /etc/network/interfaces amb el rang desitjat i
+posteriorment en el dhcp amb el pool i paràmetres que es vol com es mostra en la captura d'amunt.
+
+Configuració de les interficies:
+
+	root@monitor:~# cat /etc/network/interfaces
+	# This file describes the network interfaces available on your system
+	# and how to activate them. For more information, see interfaces(5).
+
+	source /etc/network/interfaces.d/*
+
+	# The loopback network interface
+	auto lo
+	iface lo inet loopback
+
+	# The primary network interface
+	auto iclient
+	allow-hotplug iclient
+	iface iclient inet dhcp
+
+	# The second network interface
+	auto iservidor
+	allow-hotplug iservidor
+	iface iservidor inet static
+		address 192.168.56.60
+		netmask 255.255.255.0
+		broadcast 192.168.56.255
+
+	# The third network interface
+	auto igestio
+	allow-hotplug igestio
+	iface igestio inet dhcp
+
+	auto enp0s9
+	iface enp0s9 inet dhcp
+
+	#auto enp0s10
+	iface enp0s10 inet static
+		address 10.1.2.30
+		netmask 255.255.255.0
+	root@monitor:~#
+
+
+Com a administrador potser hi ha escenaris on es vol protegir la xarxa i no es permet que qualsevol
+usuari pugui accedir-hi de forma senzilla només introduïnt un cable RJ45 a un determinat port.
+Per a això, és pot evadir reforçant la seguretat afegint-hi una autenticació d'usuari.
+Aquesta informació es troba explicada en la rfc 3118.
+
+	
+# CONFIGURACIÓ CLIENT
+---------------------
+
+L'escenari és configurar les interfícies amb xarxes internes i cadascuna aïllada.
+Per configurar-les automàticament s'han d'especificar que rebran l'ip per dhcp al fitxer
+/etc/network/interfaces com es mostra adalt.
+
+D'altra banda es poden configurar manualment en aquest mateix fitxer, però, no es recomanable
+perquè si hi existeix un altre client amb la mateixa adreça hi haurà inconsistències a l'hora
+de treballar a nivell de xarxa.
+
+L'ho convenient és que, com a administrador es configurin les adreces, és a dir, es reservin:
+
+Al mateix fitxer /etc/dhcp/dhcpd.conf:
+	 
+	host "Equip itiel" {
+	hardware ethernet 01:1F:6A:71:71:3A;
+	fixed-address 192.168.56.250;
+	}
+
+ 
+Aquesta pràctica s'ha de fer amb els servidors perquè s'han de poder accedir sempre als recursos i
+ningú ha de poder assignar les ips reservades.
+
+Per validar el servidor mitjançant el fitxers de configuració es pot fer amb les comandes:
+
+	# dhclient <interface> -v
+	# ifup <interface> -v
+
+Comprovació de les dues xarxes:
+
+	root@esclavo:~# dhclient -v itiel0
+	Internet Systems Consortium DHCP Client 4.3.5
+	Copyright 2004-2016 Internet Systems Consortium.
+	All rights reserved.
+	For info, please visit https://www.isc.org/software/dhcp/
+
+	Listening on LPF/itiel0/08:00:27:c0:3f:03
+	Sending on   LPF/itiel0/08:00:27:c0:3f:03
+	Sending on   Socket/fallback
+	DHCPDISCOVER on itiel0 to 255.255.255.255 port 67 interval 5
+	DHCPDISCOVER on itiel0 to 255.255.255.255 port 67 interval 5
+	DHCPREQUEST of 192.168.56.5 on itiel0 to 255.255.255.255 port 67
+	DHCPOFFER of 192.168.56.5 from 192.168.56.60
+	DHCPACK of 192.168.56.5 from 192.168.56.60
+	bound to 192.168.56.5 -- renewal in 263 seconds.
+	root@esclavo:~#
+
+	root@esclavo:~# dhclient -v enp0s9
+	Internet Systems Consortium DHCP Client 4.3.5
+	Copyright 2004-2016 Internet Systems Consortium.
+	All rights reserved.
+	For info, please visit https://www.isc.org/software/dhcp/
+
+	Listening on LPF/enp0s9/08:00:27:48:c4:87
+	Sending on   LPF/enp0s9/08:00:27:48:c4:87
+	Sending on   Socket/fallback
+	DHCPDISCOVER on enp0s9 to 255.255.255.255 port 67 interval 3
+	DHCPREQUEST of 10.2.1.2 on enp0s9 to 255.255.255.255 port 67
+	DHCPOFFER of 10.2.1.2 from 10.2.1.30
+	DHCPACK of 10.2.1.2 from 10.2.1.30
+	bound to 10.2.1.2 -- renewal in 295 seconds.
+	root@esclavo:~#
+
+Validació dels servidors DHCP amb l'script que s'ha programat:
+
+	root@esclavo:~# ./dhcp.sh itiel0
+	Inici 2019-03-27 20:00:32
+	Comprovant interficie itiel0...FET
+	Enviant broadcast a la xarxa i recullint dades... FET
+	Fi 2019-03-27 20:00:32
+	---------------- Data inici: 2019-03-27 20:00:32 ----------------
+
+		DHCP SERVER: 192.168.56.60
+		ADR. FÍSICA: 8:0:27:21:fa:e8
+	------------------------------------------------
+	 IP oferida			192.168.56.6
+	 Temps prèstec			300 (5m)
+	------------------------------------------------
+
+	---------------- Data fi: 2019-03-27 20:00:32 ----------------
+	root@esclavo:~# 
+
+	root@esclavo:~# ./dhcp.sh enp0s9
+	Inici 2019-03-27 19:55:55
+	Comprovant interficie enp0s9...FET
+	Enviant broadcast a la xarxa i recullint dades... FET
+	Fi 2019-03-27 19:55:56
+	---------------- Data inici: 2019-03-27 19:55:55 ----------------
+
+		DHCP SERVER: 10.2.1.30
+		ADR. FÍSICA: 8:0:27:fe:9d:56
+	------------------------------------------------
+	 IP oferida			10.2.1.3
+	 Temps prèstec			300 (5m)
+	------------------------------------------------
+
+	---------------- Data fi: 2019-03-27 19:55:56 ----------------
+	root@esclavo:~#
+
+
+# DNS DINÀMIC
+-------------
+
+Primer s'ha de generar una clau per intercanviar informació entre el DHCP i el DNS:
+
+	root# dnssec-keygen -a HMAC-MD5 -b 128 -r /dev/urandom -n USER DDNS_UPDATE
+
+La comanda generarà dos fitxers junt a la clau:
+	
+	root@monitor:/etc/dhcp# ls -l
+	total 52
+	.
+	.
+	.
+	-rw------- 1 root root   53 mar 21 11:56 Kddns_update.+157+22293.key
+	-rw------- 1 root root  165 mar 21 11:56 Kddns_update.+157+22293.private
+	.
+	.
+	.
+	root@monitor:/etc/dhcp#
+
+Amb la clau generada s'ha de crear un fitxer amb la clau que s'anomerarà ddns.key:
+
+	root@monitor:/etc/dhcp# cat ddns.key
+	key DDNS_UPDATE {
+		    algorithm HMAC-MD5.SIG-ALG.REG.INT;
+		    secret "jQHBF1skX8pcxQtCWqKHxg==";
+	};
+	root@monitor:/etc/dhcp#
+
+	NOTA: El document es pot anomenar com es vulgui.
+
+S'haurà de copiar la clau tant en /etc/dhcp com en /etc/bind per vincular-la als dos deamons:
+
+	# install -o root -g bind -m 0640 ddns.key /etc/bind/ddns.key
+	# install -o root -g root -m 0640 ddns.key /etc/dhcp/ddns.key
+
+
+Un cop ja està copiada la clau, ara, s'ha d'indicar als serveis que s'ha de notificar amb aquesta clau:
+
+	root@monitor:/etc/bind# cat named.conf.local 
+
+	include "/etc/bind/ddns.key";
+
+	zone "seax.edu" {
+		type master;
+		notify no;
+		file "/etc/bind/directes-seax.edu";
+		allow-transfer {192.168.56.102;};
+		also-notify {192.168.56.102;};
+		allow-update {key DDNS_UPDATE;};
+	};
+
+	zone "56.168.192.in-addr.arpa" {
+		type master;
+		file "/etc/bind/inverses-seax.edu";
+		allow-transfer {192.168.56.102;};
+		also-notify {192.168.56.102;};
+	};
+
+	zone "classe.seax.edu" {
+		type slave;
+		file "/etc/bind/slave/directes-classe.seax.edu";
+		masters {192.168.56.102;};
+	};
+	root@monitor:/etc/bind#
+	
+	NOTA: Els fitxer de zona no s'hauran de modificar, perquè ho farà automàticament en la cache del DNS.
+
+
+Ara s'ha de configurar el DHCP i indicar-li que a partir d'ara haurà de parlar amb el DNS per mantindre
+la associació nom -> ip:
+
+	root@monitor:/etc/dhcp# cat dhcpd.conf
+	authoritative;
+	option domain-name "seax.edu";
+	option domain-name-servers seax.edu;
+
+	ddns-updates on;
+	ddns-update-style interim;
+	ignore client-updates;
+	update-static-leases on;
+
+	default-lease-time 600;
+	max-lease-time 7200;
+	log-facility local7;
+
+
+	include "/etc/dhcp/ddns.key";
+
+	zone seax.edu. {
+	  primary 127.0.0.1;
+	  key DDNS_UPDATE;
+	}
+
+	#zone 2.168.192.in-addr.arpa. {
+	#  primary 127.0.0.1;
+	#  key DDNS_UPDATE;
+	#}
+
+
+	subnet 192.168.56.0 netmask 255.255.255.0 {
+		    range 192.168.56.2 192.168.56.50;
+		    option routers 192.168.56.1;
+	}
+	root@monitor:/etc/dhcp#
+
+	NOTA: S'ha fet només per a un rang.
+
+Les parts noves que s'han inclòs indicant que a partir d'ara és un DDNS:
+
+	option domain-name "seax.edu";
+	option domain-name-servers seax.edu;
+
+	ddns-updates on;
+	ddns-update-style interim;
+	ignore client-updates;
+	update-static-leases on;
+
+	include "/etc/dhcp/ddns.key";
+
+	zone seax.edu. {
+	  primary 127.0.0.1;
+	  key DDNS_UPDATE;
+	}
+
+	#zone 2.168.192.in-addr.arpa. {
+	#  primary 127.0.0.1;
+	#  key DDNS_UPDATE;
+	#}
+
+
+Es pot comprovar en /var/log/syslog els missatges d'intercanvi entre ambós serveis.
+S'obverva com afegeix un nou equip al dns quan el dhcp li entrega l'ip a aquest:
+
+	root@monitor:~# tail /var/log/syslog 
+	Mar 27 18:43:33 monitor named[731]: client 127.0.0.1#43856/key ddns_update: signer "ddns_update" approved
+	Mar 27 18:43:33 monitor named[731]: client 127.0.0.1#43856/key ddns_update: updating zone 'seax.edu/IN': adding an RR at 'esclavo.seax.edu' A 192.168.56.4
+	Mar 27 18:43:33 monitor named[731]: client 127.0.0.1#43856/key ddns_update: updating zone 'seax.edu/IN': adding an RR at 'esclavo.seax.edu' TXT "003c6fc841afb09128142a756ee8ae1c0a"
+	Mar 27 18:43:33 monitor dhcpd[706]: DHCPREQUEST for 192.168.56.4 (192.168.56.60) from 08:00:27:48:c4:87 (esclavo) via iservidor
+	Mar 27 18:43:33 monitor dhcpd[706]: DHCPACK on 192.168.56.4 to 08:00:27:48:c4:87 (esclavo) via iservidor
+	Mar 27 18:43:33 monitor dhcpd[706]: Added new forward map from esclavo.seax.edu to 192.168.56.4
+	Mar 27 18:43:33 monitor named[731]: client 192.168.56.102#37991: received notify for zone 'seax.edu'
+	Mar 27 18:43:34 monitor named[731]: client 192.168.56.102#46560: received notify for zone '56.168.192.in-addr.arpa'
+	Mar 27 18:43:34 monitor named[731]: client 192.168.56.102#46560: received notify for zone 'classe.seax.edu'
+	Mar 27 18:43:34 monitor named[731]: zone classe.seax.edu/IN: notify from 192.168.56.102#46560: zone is up to date
+
+Des d'un tercer equip, es tracta de resoldre contra l'equip que està oferint els dos serveis, l'ip del segon equip:
+
+	itiel@X550JX:~$ dig @192.168.56.104 esclavo.seax.edu +short
+	192.168.56.4
+	itiel@X550JX:~$
+
+
+# SCRIPT
+--------
+
+S'han fet servir les comandes nmap i dhcpdump.
+Realment la comanda nmap ja envia un broadcast i obté els DHCPOFFERS del servidors en la xarxa, però,
+existeix un bug amb la versió 7.20 i es que només mostra per pantalla el primer DHCPOFFER rebut.
+
+Amb el tcpdump a l'escolta es corrobora que funciona correctament, per tant, s'ha fet servir el dhcpdump
+que es semblant, però, especialment dedicat als paquets de DHCP.
+
+L'script executa dhcpdump amb l'interficie indicada a l'escolta en background i captura els OFFERS que rep de l'nmap 
+i així es capaç de "parsejar" les dades necessàries de tots els servidors que han donat una resposta.
+
+Paquests necessaris:
+
+ * apt-get install nmap
+ * apt-get install dhcpdump
