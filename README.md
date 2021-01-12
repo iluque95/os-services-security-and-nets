@@ -4,11 +4,7 @@ Informes a modo de guía al estilo RFC escritos por mi de principio a fin para l
 
 Por cada sesión hay informes parciales de cada conjunto de tareas y se reunen en un informe final para cada una de las sesiones.
 
-Los informes presentan un índice automáticamente generado por un programa que desarrollé. Para indexar un título se require adjuntar
-
-el carácter almohadilla junto a un espacio al principio de una palabra. El programa recorrerá todo el fichero designando la línea encontrada
-
-y auto arreglando el incremento de líneas al índice.
+Los informes presentan un índice automáticamente generado por un programa que desarrollé. Para indexar un título se require adjuntar el carácter almohadilla junto a un espacio al principio de una palabra. El programa recorrerá todo el fichero designando la línea encontrada y auto arreglando el incremento de líneas al índice.
 
 ## Contenidos
 
